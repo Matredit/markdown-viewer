@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Lens — Multi-Engine Markdown & Mermaid Comparator</title>
+  
+  <!-- Prism Syntax Highlighting Styles -->
+  <link rel="stylesheet" href="vendor/prism-tomorrow.css">
+  
+  <!-- Custom Application & Markdown Styles -->
+  <link rel="stylesheet" href="css/markdown.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Top Header & Global Toolbar -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="app-logo">
+          <div class="app-logo-icon">⚡</div>
+          <span>Markdown Lens</span>
+        </div>
+        <span class="badge-tag">Agent Comparator</span>
+      </div>
+
+      <div class="header-center">
+        <div class="sample-selector-wrap">
+          <select id="sample-select" class="select-input" title="Load realistic agent output templates">
+            <option value="" disabled selected>📂 Load Agent Sample...</option>
+          </select>
+        </div>
+
+        <button id="btn-paste-clipboard" class="btn btn-primary" title="Paste markdown directly from clipboard (Ctrl+V)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+          Paste Clipboard
+        </button>
+
+        <button id="btn-open-file" class="btn" title="Open local markdown file">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+          Open File
+        </button>
+        <input type="file" id="file-input" accept=".md,.markdown,.txt" style="display: none;">
+
+        <button id="btn-clear-input" class="btn" title="Clear input text">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          Clear
+        </button>
+      </div>
+
+      <div class="header-right">
+        <button id="btn-layout-toggle" class="btn" title="Cycle through 2-column grid, 1-column, and tabbed view">
+          ⊞ 2-Col
+        </button>
+
+        <button id="btn-open-matrix" class="btn" title="View parser comparison matrix & specs">
+          📊 Compare Specs
+        </button>
+
+        <button id="btn-toggle-theme" class="btn btn-icon-only" title="Toggle Light / Dark mode">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Split Pane -->
+    <main class="main-workspace">
+      
+      <!-- Left Window: Plain Text Editor -->
+      <section class="editor-pane" id="editor-pane">
+        <div class="pane-header">
+          <div class="pane-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            <span>Plain Text Input (Agent Markdown)</span>
+          </div>
+          <div class="pane-actions">
+            <span class="badge-tag" style="font-size:0.68rem;padding:0.1rem 0.4rem;">Live Sync</span>
+          </div>
+        </div>
+
+        <!-- Quick Snippet Helper Bar -->
+        <div class="editor-snippet-bar">
+          <span style="font-size:0.72rem;color:var(--text-muted);margin-right:0.2rem;">Insert:</span>
+          <button class="btn-snippet" data-snippet="mermaid-flow">+ Mermaid Flowchart</button>
+          <button class="btn-snippet" data-snippet="mermaid-seq">+ Mermaid Sequence</button>
+          <button class="btn-snippet" data-snippet="table">+ Table</button>
+          <button class="btn-snippet" data-snippet="alert">+ Alert Callout</button>
+          <button class="btn-snippet" data-snippet="task">+ Task Item</button>
+        </div>
+
+        <div class="editor-wrapper">
+          <textarea 
+            id="markdown-input" 
+            class="markdown-textarea" 
+            placeholder="Paste your agent's markdown text or mermaid diagrams here..."
+            spellcheck="false"
+            autocomplete="off"
+            autofocus
+          ></textarea>
+
+          <!-- Drag and Drop Overlay -->
+          <div class="dropzone-overlay" id="dropzone-overlay">
+            <div style="font-size: 2rem;">📁</div>
+            <div class="dropzone-text">Drop your .md or .txt file here</div>
+          </div>
+        </div>
+
+        <div class="editor-footer-stats">
+          <div class="stats-left">
+            <div class="stats-item">Lines: <span id="stat-lines">0</span></div>
+            <div class="stats-item">Words: <span id="stat-words">0</span></div>
+            <div class="stats-item">Chars: <span id="stat-chars">0</span></div>
+          </div>
+          <div class="stats-right">
+            <div class="stats-item">Read Time: <span id="stat-read-time">0 min</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Resizable Split Divider Handle -->
+      <div class="split-divider" id="split-divider" title="Drag to resize editor and preview windows"></div>
+
+      <!-- Right Window: Multi-Engine Previews -->
+      <section class="previews-pane">
+        
+        <!-- Tabbed Navigation Bar (shown when Tabbed layout is active) -->
+        <nav class="tab-nav-bar" id="tab-nav-bar" style="display: none;"></nav>
+
+        <!-- Viewport & Cards Grid -->
+        <div class="previews-viewport" id="previews-viewport">
+          <div class="previews-grid" id="previews-grid">
+            <!-- Dynamically populated with window cards for marked, showdown, markdown-it, etc. -->
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Comparison Matrix Modal -->
+  <div class="modal-backdrop" id="matrix-modal">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📊</span> Markdown Parsers Comparison Matrix
+        </div>
+        <button class="btn-modal-close" id="btn-close-matrix">✕</button>
+      </div>
+      <div style="padding: 1.25rem; overflow-y: auto;">
+        <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.88rem;">
+          Compare bundle sizes, specifications, and features for rendering agent responses and Mermaid graphs.
+        </p>
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th>Library</th>
+              <th>Version</th>
+              <th>Bundle Size</th>
+              <th>GFM & CommonMark</th>
+              <th>Agent Rating</th>
+              <th>Key Strengths</th>
+            </tr>
+          </thead>
+          <tbody id="matrix-tbody">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+
+        <div style="margin-top: 1.25rem; padding: 0.85rem; border-radius: 6px; background: var(--bg-surface-raised); font-size: 0.82rem; color: var(--text-secondary);">
+          <strong style="color: var(--text-primary);">💡 Why do agent outputs need special handling?</strong><br>
+          AI agents regularly generate complex GitHub Flavored Markdown (GFM): pipes in tables, task checkboxes (<code>- [x]</code>), syntax-highlighted code blocks, and <code>mermaid</code> architecture diagrams. While lightweight parsers like <em>snarkdown</em> are tiny (2KB), they lack table and task support. <strong>Marked</strong> and <strong>markdown-it</strong> provide the ideal combination of speed and standard compliance for agent workflows.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Vendor Libraries (Fully local & offline) -->
+  <script src="vendor/marked.min.js"></script>
+  <script src="vendor/markdown-it.min.js"></script>
+  <script src="vendor/markdown-it-task-lists.min.js"></script>
+  <script src="vendor/showdown.min.js"></script>
+  <script src="vendor/remarkable.min.js"></script>
+  <script src="vendor/snarkdown.min.js"></script>
+  <script src="vendor/mermaid.min.js"></script>
+  <script src="vendor/prism.min.js"></script>
+  <script src="vendor/prism-components/prism-python.min.js"></script>
+  <script src="vendor/prism-components/prism-bash.min.js"></script>
+  <script src="vendor/prism-components/prism-json.min.js"></script>
+  <script src="vendor/prism-components/prism-typescript.min.js"></script>
+  <script src="vendor/prism-components/prism-yaml.min.js"></script>
+  <script src="vendor/prism-components/prism-markdown.min.js"></script>
+
+  <!-- Application Logic -->
+  <script src="js/samples.js"></script>
+  <script src="js/parsers.js"></script>
+  <script src="js/mermaid-mgr.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
