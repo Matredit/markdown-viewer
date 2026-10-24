@@ -188,6 +188,8 @@ npm start
   }
 
   // Action Handlers
+  let lastClearedContent = '';
+
   async function handlePaste() {
     try {
       const text = await navigator.clipboard.readText();
@@ -206,14 +208,19 @@ npm start
   }
 
   function handleClear() {
-    if (!elements.textarea.value.trim()) return;
-    if (confirm('Clear editor content?')) {
-      elements.textarea.value = '';
-      updateStats('');
-      localStorage.removeItem('markdown_viewer_content');
-      renderMarkdown('');
-      showToast('Cleared editor');
-    }
+    if (!elements.textarea.value) return;
+    lastClearedContent = elements.textarea.value;
+    elements.textarea.value = '';
+    updateStats('');
+    localStorage.removeItem('markdown_viewer_content');
+    renderMarkdown('');
+    showToast('Cleared editor', 3200, () => {
+      elements.textarea.value = lastClearedContent;
+      updateStats(lastClearedContent);
+      localStorage.setItem('markdown_viewer_content', lastClearedContent);
+      renderMarkdown(lastClearedContent);
+      showToast('Restored content');
+    });
   }
 
   function handleSample() {
@@ -279,9 +286,19 @@ npm start
       // Don't trigger if zoom modal is open
       if (elements.zoomModal.classList.contains('active')) return;
 
-      // Check for Alt + key shortcuts
-      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      // Check for Alt key shortcuts (also allow Shift+Alt+C)
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
         const key = e.key.toLowerCase();
+
+        // Clear: Alt+C, Alt+K, or Shift+Alt+C / Shift+Alt+K
+        if (key === 'c' || key === 'k') {
+          e.preventDefault();
+          handleClear();
+          return;
+        }
+
+        // For other keys, ignore if Shift is held down
+        if (e.shiftKey) return;
 
         // Alt+1 or Alt+S: Split mode
         if (key === '1' || key === 's') {
@@ -303,11 +320,6 @@ npm start
           setViewMode('editor');
           localStorage.setItem('markdown_viewer_mode', 'editor');
           showToast('View: Editor (Alt+3)');
-        }
-        // Alt+C or Alt+K: Clear
-        else if (key === 'c' || key === 'k') {
-          e.preventDefault();
-          handleClear();
         }
         // Alt+V: Paste from clipboard
         else if (key === 'v') {
@@ -668,10 +680,26 @@ npm start
   }
 
   // Toast
-  function showToast(message) {
+  function showToast(message, duration = 2000, onUndo = null) {
     const toast = document.createElement('div');
     toast.className = 'toast';
-    toast.textContent = message;
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = message;
+    toast.appendChild(textSpan);
+
+    if (onUndo) {
+      const undoBtn = document.createElement('button');
+      undoBtn.textContent = 'Undo';
+      undoBtn.style.cssText = 'background: #2b2b2b; border: 1px solid #444444; color: #ffffff; border-radius: 3px; padding: 0.15rem 0.45rem; cursor: pointer; font-size: 0.74rem; margin-left: 0.55rem;';
+      undoBtn.onclick = (e) => {
+        e.stopPropagation();
+        onUndo();
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      };
+      toast.appendChild(undoBtn);
+    }
+
     elements.toastContainer.appendChild(toast);
 
     setTimeout(() => {
@@ -680,7 +708,7 @@ npm start
       setTimeout(() => {
         if (toast.parentNode) toast.parentNode.removeChild(toast);
       }, 200);
-    }, 2000);
+    }, duration);
   }
 
   // Run on ready
