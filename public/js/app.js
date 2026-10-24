@@ -168,15 +168,71 @@ npm start
     const savedMode = urlMode || localStorage.getItem('markdown_viewer_mode') || 'split';
     setViewMode(savedMode);
 
-    // Initial content
+    // Initial content (defaults to blank unless previously saved by user or ?sample=true)
+    const urlSample = new URLSearchParams(window.location.search).get('sample');
     const savedContent = localStorage.getItem('markdown_viewer_content');
-    const content = (savedContent !== null && savedContent.length > 0) ? savedContent : DEFAULT_SAMPLE;
+    let content = '';
+
+    if (urlSample === 'true' || urlSample === '1') {
+      content = DEFAULT_SAMPLE;
+    } else if (savedContent !== null) {
+      content = savedContent;
+    }
 
     elements.textarea.value = content;
     updateStats(content);
     renderMarkdown(content);
 
     bindEvents();
+    setupHotkeys();
+  }
+
+  // Action Handlers
+  async function handlePaste() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        elements.textarea.value = text;
+        updateStats(text);
+        localStorage.setItem('markdown_viewer_content', text);
+        renderMarkdown(text);
+        showToast('Pasted from clipboard');
+      } else {
+        showToast('Clipboard is empty');
+      }
+    } catch (err) {
+      showToast('Use Ctrl+V to paste');
+    }
+  }
+
+  function handleClear() {
+    if (!elements.textarea.value.trim()) return;
+    if (confirm('Clear editor content?')) {
+      elements.textarea.value = '';
+      updateStats('');
+      localStorage.removeItem('markdown_viewer_content');
+      renderMarkdown('');
+      showToast('Cleared editor');
+    }
+  }
+
+  function handleSample() {
+    elements.textarea.value = DEFAULT_SAMPLE;
+    updateStats(DEFAULT_SAMPLE);
+    localStorage.setItem('markdown_viewer_content', DEFAULT_SAMPLE);
+    renderMarkdown(DEFAULT_SAMPLE);
+    showToast('Loaded sample');
+  }
+
+  async function handleCopyHtml() {
+    if (!converter) return;
+    const html = converter.makeHtml(elements.textarea.value);
+    try {
+      await navigator.clipboard.writeText(html);
+      showToast('Copied HTML to clipboard');
+    } catch (e) {
+      showToast('Failed to copy');
+    }
   }
 
   // Bind Events
@@ -193,56 +249,10 @@ npm start
       }, 100);
     });
 
-    // Paste button
-    elements.btnPaste.addEventListener('click', async () => {
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text) {
-          elements.textarea.value = text;
-          updateStats(text);
-          localStorage.setItem('markdown_viewer_content', text);
-          renderMarkdown(text);
-          showToast('Pasted from clipboard');
-        } else {
-          showToast('Clipboard is empty');
-        }
-      } catch (err) {
-        showToast('Use Ctrl+V to paste');
-      }
-    });
-
-    // Clear button
-    elements.btnClear.addEventListener('click', () => {
-      if (!elements.textarea.value.trim()) return;
-      if (confirm('Clear editor content?')) {
-        elements.textarea.value = '';
-        updateStats('');
-        localStorage.removeItem('markdown_viewer_content');
-        renderMarkdown('');
-        showToast('Cleared editor');
-      }
-    });
-
-    // Sample button
-    elements.btnSample.addEventListener('click', () => {
-      elements.textarea.value = DEFAULT_SAMPLE;
-      updateStats(DEFAULT_SAMPLE);
-      localStorage.setItem('markdown_viewer_content', DEFAULT_SAMPLE);
-      renderMarkdown(DEFAULT_SAMPLE);
-      showToast('Loaded sample');
-    });
-
-    // Copy HTML button
-    elements.btnCopyHtml.addEventListener('click', async () => {
-      if (!converter) return;
-      const html = converter.makeHtml(elements.textarea.value);
-      try {
-        await navigator.clipboard.writeText(html);
-        showToast('Copied HTML to clipboard');
-      } catch (e) {
-        showToast('Failed to copy');
-      }
-    });
+    elements.btnPaste.addEventListener('click', handlePaste);
+    elements.btnClear.addEventListener('click', handleClear);
+    elements.btnSample.addEventListener('click', handleSample);
+    elements.btnCopyHtml.addEventListener('click', handleCopyHtml);
 
     // View mode buttons
     elements.modeBtns.forEach(btn => {
@@ -263,6 +273,61 @@ npm start
     setupModalEvents();
   }
 
+  // Keyboard Shortcuts (Hotkeys)
+  function setupHotkeys() {
+    window.addEventListener('keydown', (e) => {
+      // Don't trigger if zoom modal is open
+      if (elements.zoomModal.classList.contains('active')) return;
+
+      // Check for Alt + key shortcuts
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        const key = e.key.toLowerCase();
+
+        // Alt+1 or Alt+S: Split mode
+        if (key === '1' || key === 's') {
+          e.preventDefault();
+          setViewMode('split');
+          localStorage.setItem('markdown_viewer_mode', 'split');
+          showToast('View: Split (Alt+1)');
+        }
+        // Alt+2 or Alt+P: Preview mode
+        else if (key === '2' || key === 'p') {
+          e.preventDefault();
+          setViewMode('preview');
+          localStorage.setItem('markdown_viewer_mode', 'preview');
+          showToast('View: Preview (Alt+2)');
+        }
+        // Alt+3 or Alt+E: Editor mode
+        else if (key === '3' || key === 'e') {
+          e.preventDefault();
+          setViewMode('editor');
+          localStorage.setItem('markdown_viewer_mode', 'editor');
+          showToast('View: Editor (Alt+3)');
+        }
+        // Alt+C or Alt+K: Clear
+        else if (key === 'c' || key === 'k') {
+          e.preventDefault();
+          handleClear();
+        }
+        // Alt+V: Paste from clipboard
+        else if (key === 'v') {
+          e.preventDefault();
+          handlePaste();
+        }
+        // Alt+T: Sample template
+        else if (key === 't') {
+          e.preventDefault();
+          handleSample();
+        }
+        // Alt+H: Copy HTML
+        else if (key === 'h') {
+          e.preventDefault();
+          handleCopyHtml();
+        }
+      }
+    });
+  }
+
   // Set View Mode: 'split' | 'preview' | 'editor'
   function setViewMode(mode) {
     elements.modeBtns.forEach(b => {
@@ -281,6 +346,17 @@ npm start
   async function renderMarkdown(markdown) {
     if (!converter) {
       elements.preview.innerHTML = '<p style="color:#ef4444;">Showdown library not loaded.</p>';
+      return;
+    }
+
+    if (!markdown || !markdown.trim()) {
+      elements.preview.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">✍️</div>
+          <div class="empty-state-title">Ready for Markdown</div>
+          <div class="empty-state-desc">Paste text from your agent on the left or press <kbd>Alt+T</kbd> to load sample.</div>
+        </div>
+      `;
       return;
     }
 

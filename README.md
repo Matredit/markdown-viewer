@@ -4,15 +4,22 @@
 ## Features
 - **Showdown Engine**: GitHub Flavored Markdown (tables, task lists, strikethrough, autolinks, code blocks).
 - **Mermaid Support**: Renders flowcharts, sequence diagrams, class diagrams, etc.
-- **Dark Neutral Theme**: Clean zinc/charcoal palette with zero blue tint.
+- **Dark Neutral Theme**: Clean zinc/charcoal palette with zero blue tint and custom scrollbars.
 - **Diagram Inspector**: Pan & zoom modal for complex Mermaid diagrams with SVG export.
-- **Productivity Tools**:
-  - One-click **Paste** from clipboard.
-  - Auto-save to `localStorage` (never lose your draft).
-  - Drag-and-drop `.md` files directly.
-  - **Copy HTML** button for quick export.
-  - **Split**, **Preview Only**, and **Editor Only** view modes.
-  - Resizable split divider.
+- **Blank by Default**: Opens clean and ready for your text (auto-saves draft to `localStorage`).
+
+## Handy Keyboard Shortcuts
+
+| Shortcut | Action | Description |
+| :--- | :--- | :--- |
+| **`Alt + 1`** or **`Alt + S`** | **Split View** | Side-by-side editor and preview |
+| **`Alt + 2`** or **`Alt + P`** | **Preview Only** | Full-width reading view (hides editor) |
+| **`Alt + 3`** or **`Alt + E`** | **Editor Only** | Full-width editor |
+| **`Alt + V`** | **Paste** | Paste from clipboard |
+| **`Alt + C`** or **`Alt + K`** | **Clear** | Wipe editor content |
+| **`Alt + T`** | **Sample** | Load agent sample template |
+| **`Alt + H`** | **Copy HTML** | Copy rendered HTML to clipboard |
+| **`Esc`** | **Close Modal** | Close diagram zoom inspector |
 
 ## Quick Start
 ```bash
