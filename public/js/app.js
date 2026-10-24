@@ -129,9 +129,10 @@ npm start
     splitDivider: document.getElementById('split-divider'),
     btnPaste: document.getElementById('btn-paste'),
     btnCopyMd: document.getElementById('btn-copy-md'),
+    btnCopyHtml: document.getElementById('btn-copy-html'),
+    btnGuide: document.getElementById('btn-guide'),
     btnClear: document.getElementById('btn-clear'),
     btnSample: document.getElementById('btn-sample'),
-    btnCopyHtml: document.getElementById('btn-copy-html'),
     modeBtns: document.querySelectorAll('.btn-mode'),
     statLines: document.getElementById('stat-lines'),
     statWords: document.getElementById('stat-words'),
@@ -146,7 +147,10 @@ npm start
     btnZoomOut: document.getElementById('btn-zoom-out'),
     btnZoomReset: document.getElementById('btn-zoom-reset'),
     btnDownloadSvg: document.getElementById('btn-download-svg'),
-    viewport: document.getElementById('modal-viewport')
+    viewport: document.getElementById('modal-viewport'),
+    guideModal: document.getElementById('guide-modal'),
+    btnCloseGuide: document.getElementById('btn-close-guide'),
+    guideSearch: document.getElementById('guide-search')
   };
 
   let debounceTimer = null;
@@ -186,6 +190,10 @@ npm start
 
     bindEvents();
     setupHotkeys();
+
+    if (new URLSearchParams(window.location.search).get('guide') === 'true') {
+      openGuideModal();
+    }
   }
 
   // Action Handlers
@@ -317,6 +325,17 @@ npm start
         if (!e.shiftKey && key === 'c') {
           e.preventDefault();
           handleCopyMarkdown();
+          return;
+        }
+
+        // Guide / Cheatsheet: Alt+/ or Alt+?
+        if (key === '/' || key === '?') {
+          e.preventDefault();
+          if (elements.guideModal.classList.contains('active')) {
+            closeGuideModal();
+          } else {
+            openGuideModal();
+          }
           return;
         }
 
@@ -523,17 +542,52 @@ npm start
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  // Zoom Modal
+  // Modal Events (Zoom & Guide)
   function setupModalEvents() {
+    // Zoom Modal
     elements.btnCloseModal.addEventListener('click', closeZoomModal);
 
     elements.zoomModal.addEventListener('click', (e) => {
       if (e.target === elements.zoomModal) closeZoomModal();
     });
 
+    // Guide Modal
+    elements.btnGuide?.addEventListener('click', openGuideModal);
+    elements.btnCloseGuide?.addEventListener('click', closeGuideModal);
+
+    elements.guideModal?.addEventListener('click', (e) => {
+      if (e.target === elements.guideModal) closeGuideModal();
+    });
+
+    elements.guideSearch?.addEventListener('input', () => {
+      filterGuide(elements.guideSearch.value);
+    });
+
+    // Copy syntax snippets in guide
+    document.querySelectorAll('.btn-copy-syntax').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const text = btn.dataset.copy;
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          const orig = btn.textContent;
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = orig; }, 1400);
+          showToast('Copied snippet to clipboard');
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    });
+
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && elements.zoomModal.classList.contains('active')) {
-        closeZoomModal();
+      if (e.key === 'Escape') {
+        if (elements.guideModal.classList.contains('active')) {
+          closeGuideModal();
+        } else if (elements.zoomModal.classList.contains('active')) {
+          closeZoomModal();
+        }
       }
     });
 
@@ -619,6 +673,31 @@ npm start
   function closeZoomModal() {
     elements.zoomModal.classList.remove('active');
     document.body.style.overflow = '';
+  }
+
+  // Guide Modal Controls
+  function openGuideModal() {
+    elements.guideModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    elements.guideSearch.value = '';
+    filterGuide('');
+    setTimeout(() => elements.guideSearch.focus(), 60);
+  }
+
+  function closeGuideModal() {
+    elements.guideModal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  function filterGuide(query) {
+    const q = (query || '').trim().toLowerCase();
+    const cards = elements.guideModal.querySelectorAll('.pitfall-card, .syntax-card');
+    cards.forEach(card => {
+      const text = card.textContent.toLowerCase();
+      const tags = (card.dataset.tags || '').toLowerCase();
+      const matches = !q || text.includes(q) || tags.includes(q);
+      card.style.display = matches ? 'flex' : 'none';
+    });
   }
 
   // Split resize

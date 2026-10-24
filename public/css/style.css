@@ -591,3 +591,200 @@ html, body {
   color: var(--text-muted);
   flex-shrink: 0;
 }
+
+/* ==========================================================================
+   Guide Modal Specifics (Dark Neutral)
+   ========================================================================== */
+
+.modal-dialog.modal-guide {
+  max-width: 920px;
+  height: 88vh;
+}
+
+.modal-title-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+}
+
+.guide-subtitle {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.guide-search-input {
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.78rem;
+  width: 240px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.guide-search-input:focus {
+  border-color: var(--border-hover);
+}
+
+.guide-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.guide-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.guide-section-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.4rem;
+}
+
+/* Pitfall cards */
+.pitfalls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 0.75rem;
+}
+
+.pitfall-card {
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pitfall-header {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e5e5e5;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pitfall-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: #2b2b2b;
+  color: #a3a3a3;
+  border: 1px solid #3a3a3a;
+}
+
+.pitfall-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.pitfall-example {
+  background: #141414;
+  border: 1px solid #282828;
+  border-radius: 4px;
+  padding: 0.45rem 0.65rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.syntax-wrong {
+  color: #f87171;
+}
+
+.syntax-right {
+  color: #4ade80;
+}
+
+/* Syntax reference grid */
+.syntax-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+
+.syntax-card {
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.syntax-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.syntax-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.syntax-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.syntax-code-wrap {
+  background: #141414;
+  border: 1px solid #282828;
+  border-radius: 4px;
+  padding: 0.5rem 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  position: relative;
+}
+
+.btn-copy-syntax {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #242424;
+  border: 1px solid #383838;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: all 0.15s ease;
+}
+
+.btn-copy-syntax:hover {
+  opacity: 1;
+  background: #2e2e2e;
+  color: #ffffff;
+  border-color: #4d4d4d;
+}

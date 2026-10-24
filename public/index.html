@@ -29,6 +29,9 @@
         <button id="btn-copy-html" class="btn" title="Copy rendered HTML (Alt+H)">
           Copy HTML <span class="kbd-hint">Alt+H</span>
         </button>
+        <button id="btn-guide" class="btn" title="Markdown cheatsheet for Word & Docs users (Alt+/)">
+          Guide <span class="kbd-hint">Alt+/</span>
+        </button>
         <button id="btn-sample" class="btn" title="Load sample agent markdown (Alt+T)">
           Sample <span class="kbd-hint">Alt+T</span>
         </button>
@@ -109,6 +112,288 @@
       </div>
       <div class="modal-footer">
         <span>Click & drag to pan. Scrollwheel or +/- to zoom. Press Esc to close.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Markdown Cheatsheet & Guide Modal -->
+  <div class="modal-backdrop" id="guide-modal">
+    <div class="modal-dialog modal-guide">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-title">Markdown Cheatsheet</span>
+          <span class="guide-subtitle">A guide for Google Docs & Word users</span>
+        </div>
+        <div class="modal-controls">
+          <input type="text" id="guide-search" class="guide-search-input" placeholder="Search syntax (e.g. table, space)...">
+          <button class="btn-modal-close" id="btn-close-guide" title="Close (Esc)">✕</button>
+        </div>
+      </div>
+
+      <div class="guide-body" id="guide-body">
+        
+        <!-- Section 1: Word & Docs Pitfalls -->
+        <div class="guide-section" data-section="pitfalls">
+          <div class="guide-section-title">
+            <span>⚠️</span> The 6 Non-Intuitive Rules (Common Word / Docs Traps)
+          </div>
+
+          <div class="pitfalls-grid">
+            <!-- Trap 1: Line Breaks -->
+            <div class="pitfall-card" data-tags="line break newline enter paragraph">
+              <div class="pitfall-header">
+                <span class="pitfall-tag">Rule 1</span>
+                <span>Single Enter Is Just a Space</span>
+              </div>
+              <div class="pitfall-text">
+                In Word, pressing Enter creates a new line. In Markdown, a single Enter is treated like a space. To create a new paragraph, press Enter <strong>twice</strong> (leave an empty line).
+              </div>
+              <div class="pitfall-example">
+                <div class="syntax-wrong">❌ Line 1[Enter]Line 2 &rarr; renders as "Line 1 Line 2"</div>
+                <div class="syntax-right">✅ Line 1[Enter][Enter]Line 2 &rarr; renders as 2 paragraphs</div>
+              </div>
+            </div>
+
+            <!-- Trap 2: Spaces After Symbols -->
+            <div class="pitfall-card" data-tags="space symbol heading list hash">
+              <div class="pitfall-header">
+                <span class="pitfall-tag">Rule 2</span>
+                <span>Space After # and - Is Mandatory</span>
+              </div>
+              <div class="pitfall-text">
+                You cannot attach words directly to formatting characters. Always put a space after <code>#</code>, <code>-</code>, <code>1.</code>, and <code>&gt;</code>.
+              </div>
+              <div class="pitfall-example">
+                <div class="syntax-wrong">❌ #My Title or -List Item (treated as plain text)</div>
+                <div class="syntax-right">✅ # My Title and - List Item</div>
+              </div>
+            </div>
+
+            <!-- Trap 3: No Spaces Inside Bold/Italic -->
+            <div class="pitfall-card" data-tags="space bold italic asterisk text">
+              <div class="pitfall-header">
+                <span class="pitfall-tag">Rule 3</span>
+                <span>Formatting Tags Must Touch the Words</span>
+              </div>
+              <div class="pitfall-text">
+                Do not leave spaces inside asterisks or underscores. The syntax must wrap the words snugly.
+              </div>
+              <div class="pitfall-example">
+                <div class="syntax-wrong">❌ ** bold text ** or * italic *</div>
+                <div class="syntax-right">✅ **bold text** and *italic*</div>
+              </div>
+            </div>
+
+            <!-- Trap 4: Task List Bracket Spacing -->
+            <div class="pitfall-card" data-tags="checkbox task list bracket space">
+              <div class="pitfall-header">
+                <span class="pitfall-tag">Rule 4</span>
+                <span>Checkboxes Need Strict Spacing</span>
+              </div>
+              <div class="pitfall-text">
+                To create a checkbox, you need: dash + space + bracket + (space or x) + bracket + space.
+              </div>
+              <div class="pitfall-example">
+                <div class="syntax-wrong">❌ -[x] or -[] or [ ] (missing spaces)</div>
+                <div class="syntax-right">✅ - [x] Done and - [ ] Pending task</div>
+              </div>
+            </div>
+
+            <!-- Trap 5: Tables Need Header Separator -->
+            <div class="pitfall-card" data-tags="table pipe dash header column">
+              <div class="pitfall-header">
+                <span class="pitfall-tag">Rule 5</span>
+                <span>Tables Require the Dash Line (---)</span>
+              </div>
+              <div class="pitfall-text">
+                Pipes <code>|</code> alone don't make a table. Line 2 <strong>must</strong> have dashes <code>|---|---|</code> to separate headers from data rows.
+              </div>
+              <div class="pitfall-example">
+                <div class="syntax-wrong">❌ | Header 1 | Header 2 | followed by | Data 1 | Data 2 |</div>
+                <div class="syntax-right">✅ | Header 1 | Header 2 |<br>&nbsp;&nbsp;&nbsp;| :--- | :--- |<br>&nbsp;&nbsp;&nbsp;| Data 1 | Data 2 |</div>
+              </div>
+            </div>
+
+            <!-- Trap 6: Code Blocks On Their Own Lines -->
+            <div class="pitfall-card" data-tags="code block backtick fence line">
+              <div class="pitfall-header">
+                <span class="pitfall-tag">Rule 6</span>
+                <span>Triple Backticks Belong on Their Own Line</span>
+              </div>
+              <div class="pitfall-text">
+                Opening <code>```lang</code> and closing <code>```</code> must be on their own separate lines, never merged with code.
+              </div>
+              <div class="pitfall-example">
+                <div class="syntax-wrong">❌ ```print("hello")```</div>
+                <div class="syntax-right">✅ ```python<br>&nbsp;&nbsp;&nbsp;print("hello")<br>&nbsp;&nbsp;&nbsp;```</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Text Styling & Typography -->
+        <div class="guide-section" data-section="typography">
+          <div class="guide-section-title">
+            <span>📝</span> Text Formatting & Headings
+          </div>
+          
+          <div class="syntax-grid">
+            <div class="syntax-card" data-tags="heading title h1 h2 h3">
+              <div class="syntax-card-top">
+                <span class="syntax-name">Headings</span>
+                <span class="syntax-note">Word: Heading 1-3</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="# Main Title (H1)&#10;## Section (H2)&#10;### Subsection (H3)">Copy</button># Main Title (H1)
+## Section (H2)
+### Subsection (H3)</div>
+            </div>
+
+            <div class="syntax-card" data-tags="bold italic strike format text">
+              <div class="syntax-card-top">
+                <span class="syntax-name">Emphasis</span>
+                <span class="syntax-note">Word: Ctrl+B / Ctrl+I</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="**Bold text**&#10;*Italic text*&#10;~~Strikethrough~~">Copy</button>**Bold text**
+*Italic text*
+~~Strikethrough~~</div>
+            </div>
+
+            <div class="syntax-card" data-tags="inline code monospace backtick">
+              <div class="syntax-card-top">
+                <span class="syntax-name">Inline Code</span>
+                <span class="syntax-note">Single backtick \`</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="Run `npm start` or check `config.json`">Copy</button>Run `npm start` or check `config.json`</div>
+            </div>
+
+            <div class="syntax-card" data-tags="quote blockquote callout indent">
+              <div class="syntax-card-top">
+                <span class="syntax-name">Quote / Callout</span>
+                <span class="syntax-note">Greater-than &gt;</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="> Note: Agent tasks run in sandbox containers.">Copy</button>&gt; Note: Agent tasks run in sandbox containers.</div>
+            </div>
+
+            <div class="syntax-card" data-tags="link url web anchor">
+              <div class="syntax-card-top">
+                <span class="syntax-name">Links</span>
+                <span class="syntax-note">Word: Ctrl+K</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="[Website](https://google.com) or https://github.com">Copy</button>[Website](https://google.com)
+or bare URL: https://github.com</div>
+            </div>
+
+            <div class="syntax-card" data-tags="horizontal line divider hr rule">
+              <div class="syntax-card-top">
+                <span class="syntax-name">Divider Line</span>
+                <span class="syntax-note">3 dashes</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="---">Copy</button>---</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Lists & Tables -->
+        <div class="guide-section" data-section="structure">
+          <div class="guide-section-title">
+            <span>📋</span> Lists, Checklists & Tables
+          </div>
+
+          <div class="syntax-grid">
+            <div class="syntax-card" data-tags="bullet list unordered dash">
+              <div class="syntax-card-top">
+                <span class="syntax-name">Bullet List</span>
+                <span class="syntax-note">Indent 2 spaces for nested</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="- First item&#10;- Second item&#10;  - Sub-bullet item">Copy</button>- First item
+- Second item
+  - Sub-bullet item</div>
+            </div>
+
+            <div class="syntax-card" data-tags="numbered list ordered">
+              <div class="syntax-card-top">
+                <span class="syntax-name">Numbered List</span>
+                <span class="syntax-note">Numbers auto-order</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="1. Step one&#10;1. Step two&#10;1. Step three">Copy</button>1. Step one
+1. Step two
+1. Step three</div>
+            </div>
+
+            <div class="syntax-card" data-tags="task checklist todo checkbox">
+              <div class="syntax-card-top">
+                <span class="syntax-name">Task Checklists</span>
+                <span class="syntax-note">Interactive checkbox</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="- [x] Completed milestone&#10;- [ ] Pending task item">Copy</button>- [x] Completed milestone
+- [ ] Pending task item</div>
+            </div>
+
+            <div class="syntax-card" data-tags="table grid columns row">
+              <div class="syntax-card-top">
+                <span class="syntax-name">GFM Table</span>
+                <span class="syntax-note">Aligned with :---</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="| Key | Type | Description |&#10;| :--- | :---: | ---: |&#10;| port | number | 3000 |&#10;| open | bool | true |">Copy</button>| Key | Type | Description |
+| :--- | :---: | ---: |
+| port | number | 3000 |
+| open | bool | true |</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Mermaid Diagrams -->
+        <div class="guide-section" data-section="mermaid">
+          <div class="guide-section-title">
+            <span>📐</span> Mermaid Diagrams (Flowchart & Sequence)
+          </div>
+
+          <div class="syntax-grid">
+            <div class="syntax-card" data-tags="mermaid flowchart graph diagram">
+              <div class="syntax-card-top">
+                <span class="syntax-name">Flowchart Diagram</span>
+                <span class="syntax-note">Top-to-Bottom (TD)</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="```mermaid&#10;flowchart TD&#10;    A[Start] --> B{Approved?}&#10;    B -->|Yes| C[Execute]&#10;    B -->|No| D[Revise]&#10;```">Copy</button>```mermaid
+flowchart TD
+    A[Start] --> B{Approved?}
+    B -->|Yes| C[Execute]
+    B -->|No| D[Revise]
+```</div>
+            </div>
+
+            <div class="syntax-card" data-tags="mermaid sequence diagram workflow">
+              <div class="syntax-card-top">
+                <span class="syntax-name">Sequence Diagram</span>
+                <span class="syntax-note">Actor & message flow</span>
+              </div>
+              <div class="syntax-code-wrap">
+                <button class="btn-copy-syntax" data-copy="```mermaid&#10;sequenceDiagram&#10;    User->>Agent: Prompt&#10;    Agent->>Tool: Execute script&#10;    Tool-->>Agent: Output&#10;    Agent-->>User: Response&#10;```">Copy</button>```mermaid
+sequenceDiagram
+    User->>Agent: Prompt
+    Agent->>Tool: Execute script
+    Tool-->>Agent: Output
+    Agent-->>User: Response
+```</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <span>💡 Tip: Click "Copy" on any snippet to paste it into your document. Press <kbd>Esc</kbd> to close.</span>
       </div>
     </div>
   </div>
