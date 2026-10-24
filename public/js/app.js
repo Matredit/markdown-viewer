@@ -588,6 +588,22 @@ npm start
         } else if (elements.zoomModal.classList.contains('active')) {
           closeZoomModal();
         }
+      } else if (elements.zoomModal.classList.contains('active')) {
+        if (e.key === '+' || e.key === '=') {
+          e.preventDefault();
+          zoomScale = Math.min(zoomScale * 1.25, 5);
+          updateTransform();
+        } else if (e.key === '-' || e.key === '_') {
+          e.preventDefault();
+          zoomScale = Math.max(zoomScale / 1.25, 0.2);
+          updateTransform();
+        } else if (e.key === '0') {
+          e.preventDefault();
+          zoomScale = 1;
+          translateX = 0;
+          translateY = 0;
+          updateTransform();
+        }
       }
     });
 
@@ -661,6 +677,35 @@ npm start
   function openZoomModal(svgContent) {
     currentSvg = svgContent;
     elements.modalCanvas.innerHTML = svgContent;
+
+    const svgEl = elements.modalCanvas.querySelector('svg');
+    if (svgEl) {
+      // Clear restrictive inline max-width so zoom modal can control sizing
+      svgEl.style.maxWidth = '';
+      svgEl.style.minWidth = '';
+
+      // Ensure explicit width & height attributes from viewBox so flexbox calculates intrinsic dimensions
+      let vbWidth = 0;
+      let vbHeight = 0;
+      if (svgEl.viewBox && svgEl.viewBox.baseVal && svgEl.viewBox.baseVal.width > 0) {
+        vbWidth = svgEl.viewBox.baseVal.width;
+        vbHeight = svgEl.viewBox.baseVal.height;
+      } else {
+        const vb = svgEl.getAttribute('viewBox');
+        if (vb) {
+          const parts = vb.trim().split(/[\s,]+/).map(Number);
+          if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+            vbWidth = parts[2];
+            vbHeight = parts[3];
+          }
+        }
+      }
+      if (vbWidth > 0 && vbHeight > 0) {
+        svgEl.setAttribute('width', vbWidth);
+        svgEl.setAttribute('height', vbHeight);
+      }
+    }
+
     zoomScale = 1;
     translateX = 0;
     translateY = 0;
@@ -673,6 +718,7 @@ npm start
   function closeZoomModal() {
     elements.zoomModal.classList.remove('active');
     document.body.style.overflow = '';
+    elements.modalCanvas.innerHTML = '';
   }
 
   // Guide Modal Controls
