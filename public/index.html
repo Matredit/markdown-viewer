@@ -241,60 +241,72 @@
             <div class="syntax-card" data-tags="heading title h1 h2 h3">
               <div class="syntax-card-top">
                 <span class="syntax-name">Headings</span>
-                <span class="syntax-note">Word: Heading 1-3</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">Word: Heading 1-3</span>
+                  <button class="btn-copy-syntax" data-copy="# Main Title (H1)&#10;## Section (H2)&#10;### Subsection (H3)">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="# Main Title (H1)&#10;## Section (H2)&#10;### Subsection (H3)">Copy</button># Main Title (H1)
+              <pre class="syntax-code-wrap"><code># Main Title (H1)
 ## Section (H2)
-### Subsection (H3)</div>
+### Subsection (H3)</code></pre>
             </div>
 
             <div class="syntax-card" data-tags="bold italic strike format text">
               <div class="syntax-card-top">
                 <span class="syntax-name">Emphasis</span>
-                <span class="syntax-note">Word: Ctrl+B / Ctrl+I</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">Word: Ctrl+B / Ctrl+I</span>
+                  <button class="btn-copy-syntax" data-copy="**Bold text**&#10;*Italic text*&#10;~~Strikethrough~~">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="**Bold text**&#10;*Italic text*&#10;~~Strikethrough~~">Copy</button>**Bold text**
+              <pre class="syntax-code-wrap"><code>**Bold text**
 *Italic text*
-~~Strikethrough~~</div>
+~~Strikethrough~~</code></pre>
             </div>
 
             <div class="syntax-card" data-tags="inline code monospace backtick">
               <div class="syntax-card-top">
                 <span class="syntax-name">Inline Code</span>
-                <span class="syntax-note">Single backtick \`</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">Single backtick `</span>
+                  <button class="btn-copy-syntax" data-copy="Run `npm start` or check `config.json`">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="Run `npm start` or check `config.json`">Copy</button>Run `npm start` or check `config.json`</div>
+              <pre class="syntax-code-wrap"><code>Run `npm start` or check `config.json`</code></pre>
             </div>
 
             <div class="syntax-card" data-tags="quote blockquote callout indent">
               <div class="syntax-card-top">
                 <span class="syntax-name">Quote / Callout</span>
-                <span class="syntax-note">Greater-than &gt;</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">Greater-than &gt;</span>
+                  <button class="btn-copy-syntax" data-copy="> Note: Agent tasks run in sandbox containers.">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="> Note: Agent tasks run in sandbox containers.">Copy</button>&gt; Note: Agent tasks run in sandbox containers.</div>
+              <pre class="syntax-code-wrap"><code>&gt; Note: Agent tasks run in sandbox containers.</code></pre>
             </div>
 
             <div class="syntax-card" data-tags="link url web anchor">
               <div class="syntax-card-top">
                 <span class="syntax-name">Links</span>
-                <span class="syntax-note">Word: Ctrl+K</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">Word: Ctrl+K</span>
+                  <button class="btn-copy-syntax" data-copy="[Website](https://google.com) or https://github.com">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="[Website](https://google.com) or https://github.com">Copy</button>[Website](https://google.com)
-or bare URL: https://github.com</div>
+              <pre class="syntax-code-wrap"><code>[Website](https://google.com)
+or bare URL: https://github.com</code></pre>
             </div>
 
             <div class="syntax-card" data-tags="horizontal line divider hr rule">
               <div class="syntax-card-top">
                 <span class="syntax-name">Divider Line</span>
-                <span class="syntax-note">3 dashes</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">3 dashes</span>
+                  <button class="btn-copy-syntax" data-copy="---">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="---">Copy</button>---</div>
+              <pre class="syntax-code-wrap"><code>---</code></pre>
             </div>
           </div>
         </div>
@@ -309,45 +321,53 @@ or bare URL: https://github.com</div>
             <div class="syntax-card" data-tags="bullet list unordered dash">
               <div class="syntax-card-top">
                 <span class="syntax-name">Bullet List</span>
-                <span class="syntax-note">Indent 2 spaces for nested</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">Indent 2 spaces for nested</span>
+                  <button class="btn-copy-syntax" data-copy="- First item&#10;- Second item&#10;  - Sub-bullet item">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="- First item&#10;- Second item&#10;  - Sub-bullet item">Copy</button>- First item
+              <pre class="syntax-code-wrap"><code>- First item
 - Second item
-  - Sub-bullet item</div>
+  - Sub-bullet item</code></pre>
             </div>
 
             <div class="syntax-card" data-tags="numbered list ordered">
               <div class="syntax-card-top">
                 <span class="syntax-name">Numbered List</span>
-                <span class="syntax-note">Numbers auto-order</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">Numbers auto-order</span>
+                  <button class="btn-copy-syntax" data-copy="1. Step one&#10;1. Step two&#10;1. Step three">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="1. Step one&#10;1. Step two&#10;1. Step three">Copy</button>1. Step one
+              <pre class="syntax-code-wrap"><code>1. Step one
 1. Step two
-1. Step three</div>
+1. Step three</code></pre>
             </div>
 
             <div class="syntax-card" data-tags="task checklist todo checkbox">
               <div class="syntax-card-top">
                 <span class="syntax-name">Task Checklists</span>
-                <span class="syntax-note">Interactive checkbox</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">Interactive checkbox</span>
+                  <button class="btn-copy-syntax" data-copy="- [x] Completed milestone&#10;- [ ] Pending task item">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="- [x] Completed milestone&#10;- [ ] Pending task item">Copy</button>- [x] Completed milestone
-- [ ] Pending task item</div>
+              <pre class="syntax-code-wrap"><code>- [x] Completed milestone
+- [ ] Pending task item</code></pre>
             </div>
 
             <div class="syntax-card" data-tags="table grid columns row">
               <div class="syntax-card-top">
                 <span class="syntax-name">GFM Table</span>
-                <span class="syntax-note">Aligned with :---</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">Aligned with :---</span>
+                  <button class="btn-copy-syntax" data-copy="| Key | Type | Description |&#10;| :--- | :---: | ---: |&#10;| port | number | 3000 |&#10;| open | bool | true |">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="| Key | Type | Description |&#10;| :--- | :---: | ---: |&#10;| port | number | 3000 |&#10;| open | bool | true |">Copy</button>| Key | Type | Description |
+              <pre class="syntax-code-wrap"><code>| Key | Type | Description |
 | :--- | :---: | ---: |
 | port | number | 3000 |
-| open | bool | true |</div>
+| open | bool | true |</code></pre>
             </div>
           </div>
         </div>
@@ -362,30 +382,34 @@ or bare URL: https://github.com</div>
             <div class="syntax-card" data-tags="mermaid flowchart graph diagram">
               <div class="syntax-card-top">
                 <span class="syntax-name">Flowchart Diagram</span>
-                <span class="syntax-note">Top-to-Bottom (TD)</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">Top-to-Bottom (TD)</span>
+                  <button class="btn-copy-syntax" data-copy="```mermaid&#10;flowchart TD&#10;    A[Start] --> B{Approved?}&#10;    B -->|Yes| C[Execute]&#10;    B -->|No| D[Revise]&#10;```">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="```mermaid&#10;flowchart TD&#10;    A[Start] --> B{Approved?}&#10;    B -->|Yes| C[Execute]&#10;    B -->|No| D[Revise]&#10;```">Copy</button>```mermaid
+              <pre class="syntax-code-wrap"><code>```mermaid
 flowchart TD
     A[Start] --> B{Approved?}
     B -->|Yes| C[Execute]
     B -->|No| D[Revise]
-```</div>
+```</code></pre>
             </div>
 
             <div class="syntax-card" data-tags="mermaid sequence diagram workflow">
               <div class="syntax-card-top">
                 <span class="syntax-name">Sequence Diagram</span>
-                <span class="syntax-note">Actor & message flow</span>
+                <div class="syntax-top-right">
+                  <span class="syntax-note">Actor & message flow</span>
+                  <button class="btn-copy-syntax" data-copy="```mermaid&#10;sequenceDiagram&#10;    User->>Agent: Prompt&#10;    Agent->>Tool: Execute script&#10;    Tool-->>Agent: Output&#10;    Agent-->>User: Response&#10;```">Copy</button>
+                </div>
               </div>
-              <div class="syntax-code-wrap">
-                <button class="btn-copy-syntax" data-copy="```mermaid&#10;sequenceDiagram&#10;    User->>Agent: Prompt&#10;    Agent->>Tool: Execute script&#10;    Tool-->>Agent: Output&#10;    Agent-->>User: Response&#10;```">Copy</button>```mermaid
+              <pre class="syntax-code-wrap"><code>```mermaid
 sequenceDiagram
     User->>Agent: Prompt
     Agent->>Tool: Execute script
     Tool-->>Agent: Output
     Agent-->>User: Response
-```</div>
+```</code></pre>
             </div>
           </div>
         </div>
