@@ -128,6 +128,7 @@ npm start
     editorPane: document.getElementById('editor-pane'),
     splitDivider: document.getElementById('split-divider'),
     btnPaste: document.getElementById('btn-paste'),
+    btnCopyMd: document.getElementById('btn-copy-md'),
     btnClear: document.getElementById('btn-clear'),
     btnSample: document.getElementById('btn-sample'),
     btnCopyHtml: document.getElementById('btn-copy-html'),
@@ -242,6 +243,20 @@ npm start
     }
   }
 
+  async function handleCopyMarkdown() {
+    const md = elements.textarea.value;
+    if (!md) {
+      showToast('Nothing to copy');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(md);
+      showToast('Copied Markdown (Alt+C)');
+    } catch (e) {
+      showToast('Failed to copy');
+    }
+  }
+
   // Bind Events
   function bindEvents() {
     // Live typing with debounce
@@ -257,6 +272,7 @@ npm start
     });
 
     elements.btnPaste.addEventListener('click', handlePaste);
+    elements.btnCopyMd.addEventListener('click', handleCopyMarkdown);
     elements.btnClear.addEventListener('click', handleClear);
     elements.btnSample.addEventListener('click', handleSample);
     elements.btnCopyHtml.addEventListener('click', handleCopyHtml);
@@ -286,14 +302,21 @@ npm start
       // Don't trigger if zoom modal is open
       if (elements.zoomModal.classList.contains('active')) return;
 
-      // Check for Alt key shortcuts (also allow Shift+Alt+C)
+      // Check for Alt key shortcuts
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
         const key = e.key.toLowerCase();
 
-        // Clear: Alt+C, Alt+K, or Shift+Alt+C / Shift+Alt+K
-        if (key === 'c' || key === 'k') {
+        // Clear: Shift+Alt+C or Shift+Alt+K
+        if (e.shiftKey && (key === 'c' || key === 'k')) {
           e.preventDefault();
           handleClear();
+          return;
+        }
+
+        // Copy Markdown: Alt+C (without shift)
+        if (!e.shiftKey && key === 'c') {
+          e.preventDefault();
+          handleCopyMarkdown();
           return;
         }
 

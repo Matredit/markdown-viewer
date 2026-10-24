@@ -12,13 +12,14 @@
 
 | Shortcut | Action | Description |
 | :--- | :--- | :--- |
+| **`Alt + C`** | **Copy MD** | Copy original Markdown source to clipboard |
+| **`Shift + Alt + C`** | **Clear** | Wipe editor content instantly (with Undo) |
+| **`Alt + V`** | **Paste** | Paste from clipboard |
+| **`Alt + H`** | **Copy HTML** | Copy rendered HTML to clipboard |
+| **`Alt + T`** | **Sample** | Load agent sample template |
 | **`Alt + 1`** or **`Alt + S`** | **Split View** | Side-by-side editor and preview |
 | **`Alt + 2`** or **`Alt + P`** | **Preview Only** | Full-width reading view (hides editor) |
 | **`Alt + 3`** or **`Alt + E`** | **Editor Only** | Full-width editor |
-| **`Alt + V`** | **Paste** | Paste from clipboard |
-| **`Alt + C`** or **`Alt + K`** | **Clear** | Wipe editor content |
-| **`Alt + T`** | **Sample** | Load agent sample template |
-| **`Alt + H`** | **Copy HTML** | Copy rendered HTML to clipboard |
 | **`Esc`** | **Close Modal** | Close diagram zoom inspector |
 
 ## Quick Start
