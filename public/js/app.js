@@ -1,295 +1,520 @@
-// Markdown Lens - Core Application Controller
+// Simple Dark Neutral Markdown Viewer using Showdown
 (function () {
   'use strict';
 
-  // State
-  const urlParams = new URLSearchParams(window.location.search);
-  const state = {
-    content: '',
-    theme: urlParams.get('theme') || localStorage.getItem('markdown_lens_theme') || 'dark',
-    layout: urlParams.get('layout') || localStorage.getItem('markdown_lens_layout') || 'grid-2', // 'grid-2', 'grid-1', 'tabbed'
-    activeTab: urlParams.get('tab') || 'marked',
-    enabledParsers: JSON.parse(localStorage.getItem('markdown_lens_enabled') || '["marked", "markdown-it", "showdown", "remarkable", "snarkdown"]'),
-    cardModes: {}, // parserId -> 'preview' | 'html'
-    maximizedCard: null,
-    syncScroll: localStorage.getItem('markdown_lens_sync_scroll') !== 'false'
-  };
+  // Sample agent markdown content
+  const DEFAULT_SAMPLE = `# Agent Workflow & Execution Plan
+
+> System initialized. Worker pool ready with isolated task sandboxes.
+
+## 1. System Architecture
+
+\`\`\`mermaid
+flowchart TD
+    User([User Prompt]) --> Agent[Primary Agent]
+    Agent --> Planner{Task Planner}
+    
+    Planner -->|Execute Tool| Sandbox[Tool Sandbox]
+    Planner -->|Direct Response| Output([Final Result])
+    
+    Sandbox --> Results[(Execution Output)]
+    Results --> Planner
+\`\`\`
+
+## 2. Interaction Sequence
+
+\`\`\`mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as Developer
+    participant Agent as Agent CLI
+    participant LLM as Model Gateway
+    participant Tool as Sandbox
+
+    Dev->>Agent: Send task prompt
+    Agent->>LLM: Stream prompt + tools
+    LLM-->>Agent: Function call: run_command
+    Agent->>Tool: Execute script
+    Tool-->>Agent: Exit code 0 + stdout
+    Agent->>LLM: Send execution output
+    LLM-->>Agent: Final response
+    Agent-->>Dev: Ready view
+\`\`\`
+
+## 3. Implementation Checklist
+
+- [x] Configure Showdown with GFM tables and task lists
+- [x] Style neutral dark theme with zero blue tint
+- [x] Integrate Mermaid dark theme rendering
+- [ ] Implement user custom snippet shortcuts
+
+## 4. Parameter Specification
+
+| Key | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| \`maxConcurrency\` | \`number\` | \`4\` | Max concurrent subagents |
+| \`timeoutMs\` | \`number\` | \`10000\` | Process timeout limit |
+| \`streamMode\` | \`boolean\` | \`true\` | Stream tokens directly |
+
+## 5. Sample Script
+
+\`\`\`bash
+# Run local viewer
+npm start
+\`\`\`
+`;
+
+  // Initialize Showdown Converter
+  let converter = null;
+  if (typeof window.showdown !== 'undefined') {
+    converter = new window.showdown.Converter({
+      tables: true,
+      tasklists: true,
+      strikethrough: true,
+      ghCodeBlocks: true,
+      simplifiedAutoLink: true,
+      openLinksInNewWindow: true,
+      emoji: true,
+      simpleLineBreaks: false,
+      ghCompatibleHeaderId: true,
+      parseImgDimensions: true,
+      smoothLiveStreaming: true
+    });
+  }
+
+  // Initialize Mermaid with Dark Neutral Theme
+  let mermaidReady = false;
+  if (typeof window.mermaid !== 'undefined') {
+    try {
+      window.mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        securityLevel: 'loose',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        themeVariables: {
+          darkMode: true,
+          background: '#161616',
+          primaryColor: '#262626',
+          primaryTextColor: '#e5e5e5',
+          primaryBorderColor: '#444444',
+          lineColor: '#777777',
+          secondaryColor: '#202020',
+          tertiaryColor: '#181818',
+          mainBkg: '#222222',
+          nodeBorder: '#444444',
+          clusterBkg: '#1a1a1a',
+          clusterBorder: '#333333',
+          defaultLinkColor: '#777777',
+          titleColor: '#e5e5e5',
+          edgeLabelBackground: '#1e1e1e',
+          actorBkg: '#222222',
+          actorBorder: '#444444',
+          actorTextColor: '#e5e5e5',
+          signalColor: '#888888',
+          signalTextColor: '#e5e5e5'
+        }
+      });
+      mermaidReady = true;
+    } catch (e) {
+      console.error('Mermaid init error:', e);
+    }
+  }
 
   // DOM Elements
   const elements = {
     textarea: document.getElementById('markdown-input'),
+    preview: document.getElementById('preview-content'),
+    workspace: document.getElementById('workspace'),
     editorPane: document.getElementById('editor-pane'),
     splitDivider: document.getElementById('split-divider'),
-    previewsViewport: document.getElementById('previews-viewport'),
-    previewsGrid: document.getElementById('previews-grid'),
-    tabNavBar: document.getElementById('tab-nav-bar'),
-    sampleSelect: document.getElementById('sample-select'),
-    btnPaste: document.getElementById('btn-paste-clipboard'),
-    btnClear: document.getElementById('btn-clear-input'),
-    btnTheme: document.getElementById('btn-toggle-theme'),
-    btnLayout: document.getElementById('btn-layout-toggle'),
-    btnCompare: document.getElementById('btn-open-matrix'),
-    fileInput: document.getElementById('file-input'),
-    btnOpenFile: document.getElementById('btn-open-file'),
-    dropOverlay: document.getElementById('dropzone-overlay'),
+    btnPaste: document.getElementById('btn-paste'),
+    btnClear: document.getElementById('btn-clear'),
+    btnSample: document.getElementById('btn-sample'),
+    btnCopyHtml: document.getElementById('btn-copy-html'),
+    modeBtns: document.querySelectorAll('.btn-mode'),
     statLines: document.getElementById('stat-lines'),
     statWords: document.getElementById('stat-words'),
     statChars: document.getElementById('stat-chars'),
-    statReadTime: document.getElementById('stat-read-time'),
+    dropOverlay: document.getElementById('drop-overlay'),
     toastContainer: document.getElementById('toast-container'),
-    matrixModal: document.getElementById('matrix-modal')
+    zoomModal: document.getElementById('zoom-modal'),
+    modalCanvas: document.getElementById('modal-canvas'),
+    modalLabel: document.getElementById('zoom-label'),
+    btnCloseModal: document.getElementById('btn-close-modal'),
+    btnZoomIn: document.getElementById('btn-zoom-in'),
+    btnZoomOut: document.getElementById('btn-zoom-out'),
+    btnZoomReset: document.getElementById('btn-zoom-reset'),
+    btnDownloadSvg: document.getElementById('btn-download-svg'),
+    viewport: document.getElementById('modal-viewport')
   };
 
   let debounceTimer = null;
-  let isScrollingSync = false;
+  let renderCounter = 0;
+  let currentSvg = '';
+  let zoomScale = 1;
+  let isPanning = false;
+  let startX = 0, startY = 0, translateX = 0, translateY = 0;
 
   // Initialize
   function init() {
-    // Set initial theme
-    document.documentElement.setAttribute('data-theme', state.theme);
-    updateThemeIcon();
-
-    // Initialize Parsers & Mermaid
-    window.MarkdownParsers.init();
-    window.MermaidManager.init(state.theme);
-
-    // Populate Sample Selector
-    populateSamples();
-
     // Restore saved split width
-    const savedSplit = localStorage.getItem('markdown_lens_split_width');
+    const savedSplit = localStorage.getItem('markdown_viewer_split_width');
     if (savedSplit && elements.editorPane) {
       elements.editorPane.style.width = savedSplit;
     }
 
-    // Set initial content (from URL query, localStorage, or default sample)
-    const urlSample = urlParams.get('sample');
-    if (urlSample && window.MARKDOWN_SAMPLES && window.MARKDOWN_SAMPLES[urlSample]) {
-      state.content = window.MARKDOWN_SAMPLES[urlSample].content;
-      elements.sampleSelect.value = urlSample;
-    } else {
-      const savedContent = localStorage.getItem('markdown_lens_content');
-      if (savedContent && savedContent.trim().length > 0) {
-        state.content = savedContent;
-      } else if (window.MARKDOWN_SAMPLES && window.MARKDOWN_SAMPLES.engine_differences) {
-        state.content = window.MARKDOWN_SAMPLES.engine_differences.content;
-        elements.sampleSelect.value = 'engine_differences';
-      }
-    }
+    // Restore saved view mode
+    const urlMode = new URLSearchParams(window.location.search).get('mode');
+    const savedMode = urlMode || localStorage.getItem('markdown_viewer_mode') || 'split';
+    setViewMode(savedMode);
 
-    elements.textarea.value = state.content;
-    updateStats(state.content);
+    // Initial content
+    const savedContent = localStorage.getItem('markdown_viewer_content');
+    const content = (savedContent !== null && savedContent.length > 0) ? savedContent : DEFAULT_SAMPLE;
 
-    // Build the preview cards
-    renderCardsStructure();
+    elements.textarea.value = content;
+    updateStats(content);
+    renderMarkdown(content);
 
-    // Perform initial render
-    renderAllPreviews();
-
-    // Bind event listeners
     bindEvents();
   }
 
-  // Populate sample dropdown
-  function populateSamples() {
-    if (!window.MARKDOWN_SAMPLES) return;
-    elements.sampleSelect.innerHTML = '<option value="" disabled selected>📂 Load Agent Sample...</option>';
-    for (const [key, sample] of Object.entries(window.MARKDOWN_SAMPLES)) {
-      const opt = document.createElement('option');
-      opt.value = key;
-      opt.textContent = `${sample.name}`;
-      elements.sampleSelect.appendChild(opt);
-    }
-  }
-
-  // Bind UI Events
+  // Bind Events
   function bindEvents() {
-    // Textarea input with debounce
+    // Live typing with debounce
     elements.textarea.addEventListener('input', () => {
-      state.content = elements.textarea.value;
-      updateStats(state.content);
-      localStorage.setItem('markdown_lens_content', state.content);
+      const text = elements.textarea.value;
+      updateStats(text);
+      localStorage.setItem('markdown_viewer_content', text);
 
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        renderAllPreviews();
-      }, 120);
+        renderMarkdown(text);
+      }, 100);
     });
 
-    // Sample Selector
-    elements.sampleSelect.addEventListener('change', () => {
-      const sampleKey = elements.sampleSelect.value;
-      if (sampleKey && window.MARKDOWN_SAMPLES[sampleKey]) {
-        state.content = window.MARKDOWN_SAMPLES[sampleKey].content;
-        elements.textarea.value = state.content;
-        updateStats(state.content);
-        localStorage.setItem('markdown_lens_content', state.content);
-        renderAllPreviews();
-        showToast(`Loaded "${window.MARKDOWN_SAMPLES[sampleKey].name}"`);
-      }
-    });
-
-    // Paste from Clipboard
+    // Paste button
     elements.btnPaste.addEventListener('click', async () => {
       try {
         const text = await navigator.clipboard.readText();
         if (text) {
-          state.content = text;
           elements.textarea.value = text;
           updateStats(text);
-          localStorage.setItem('markdown_lens_content', text);
-          renderAllPreviews();
-          showToast('Pasted markdown from clipboard!');
+          localStorage.setItem('markdown_viewer_content', text);
+          renderMarkdown(text);
+          showToast('Pasted from clipboard');
         } else {
-          showToast('Clipboard was empty.');
+          showToast('Clipboard is empty');
         }
       } catch (err) {
-        showToast('Clipboard permission denied. Use Ctrl+V in editor.');
+        showToast('Use Ctrl+V to paste');
       }
     });
 
-    // Clear Button
+    // Clear button
     elements.btnClear.addEventListener('click', () => {
       if (!elements.textarea.value.trim()) return;
-      if (confirm('Clear current markdown text?')) {
-        state.content = '';
+      if (confirm('Clear editor content?')) {
         elements.textarea.value = '';
         updateStats('');
-        localStorage.removeItem('markdown_lens_content');
-        renderAllPreviews();
-        showToast('Cleared input.');
+        localStorage.removeItem('markdown_viewer_content');
+        renderMarkdown('');
+        showToast('Cleared editor');
       }
     });
 
-    // Open File Button
-    elements.btnOpenFile.addEventListener('click', () => {
-      elements.fileInput.click();
+    // Sample button
+    elements.btnSample.addEventListener('click', () => {
+      elements.textarea.value = DEFAULT_SAMPLE;
+      updateStats(DEFAULT_SAMPLE);
+      localStorage.setItem('markdown_viewer_content', DEFAULT_SAMPLE);
+      renderMarkdown(DEFAULT_SAMPLE);
+      showToast('Loaded sample');
     });
 
-    elements.fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        state.content = evt.target.result;
-        elements.textarea.value = state.content;
-        updateStats(state.content);
-        localStorage.setItem('markdown_lens_content', state.content);
-        renderAllPreviews();
-        showToast(`Opened "${file.name}"`);
-      };
-      reader.readAsText(file);
-      elements.fileInput.value = '';
+    // Copy HTML button
+    elements.btnCopyHtml.addEventListener('click', async () => {
+      if (!converter) return;
+      const html = converter.makeHtml(elements.textarea.value);
+      try {
+        await navigator.clipboard.writeText(html);
+        showToast('Copied HTML to clipboard');
+      } catch (e) {
+        showToast('Failed to copy');
+      }
     });
 
-    // Drag and Drop File handling
-    setupDragAndDrop();
-
-    // Split Pane Resizing
-    setupSplitResize();
-
-    // Theme Toggle
-    elements.btnTheme.addEventListener('click', toggleTheme);
-
-    // Layout Toggle
-    elements.btnLayout.addEventListener('click', cycleLayout);
-
-    // Comparison Matrix Modal
-    elements.btnCompare.addEventListener('click', openMatrixModal);
-
-    // Snippet Insert Buttons
-    document.querySelectorAll('.btn-snippet').forEach(btn => {
+    // View mode buttons
+    elements.modeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
-        const snippetType = btn.dataset.snippet;
-        insertSnippet(snippetType);
+        const mode = btn.dataset.mode;
+        setViewMode(mode);
+        localStorage.setItem('markdown_viewer_mode', mode);
       });
     });
 
-    // Scroll Syncing
-    setupScrollSync();
+    // Split pane resize
+    setupSplitResize();
+
+    // Drag and drop files
+    setupDragAndDrop();
+
+    // Zoom modal events
+    setupModalEvents();
   }
 
-  // Insert Snippet Helpers
-  function insertSnippet(type) {
-    let snippet = '';
-    if (type === 'mermaid-flow') {
-      snippet = `\n\`\`\`mermaid\nflowchart TD\n    A[Start] --> B{Condition}\n    B -->|Yes| C[Success]\n    B -->|No| D[Retry]\n\`\`\`\n`;
-    } else if (type === 'mermaid-seq') {
-      snippet = `\n\`\`\`mermaid\nsequenceDiagram\n    User->>Agent: Request\n    Agent->>Tool: Execute\n    Tool-->>Agent: Output\n    Agent-->>User: Response\n\`\`\`\n`;
-    } else if (type === 'table') {
-      snippet = `\n| Column 1 | Column 2 | Column 3 |\n| :--- | :---: | ---: |\n| Value A | Value B | Value C |\n| Data 1 | Data 2 | Data 3 |\n`;
-    } else if (type === 'alert') {
-      snippet = `\n> [!NOTE]\n> Here is an important note or callout from the agent.\n`;
-    } else if (type === 'task') {
-      snippet = `\n- [x] Completed task item\n- [ ] Pending task item\n`;
+  // Set View Mode: 'split' | 'preview' | 'editor'
+  function setViewMode(mode) {
+    elements.modeBtns.forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+
+    elements.workspace.classList.remove('preview-only', 'editor-only');
+    if (mode === 'preview') {
+      elements.workspace.classList.add('preview-only');
+    } else if (mode === 'editor') {
+      elements.workspace.classList.add('editor-only');
+    }
+  }
+
+  // Render Markdown using Showdown + Mermaid + Prism
+  async function renderMarkdown(markdown) {
+    if (!converter) {
+      elements.preview.innerHTML = '<p style="color:#ef4444;">Showdown library not loaded.</p>';
+      return;
     }
 
-    const textarea = elements.textarea;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const currentVal = textarea.value;
+    // 1. Convert markdown to HTML via Showdown
+    const html = converter.makeHtml(markdown);
+    elements.preview.innerHTML = html;
 
-    textarea.value = currentVal.substring(0, start) + snippet + currentVal.substring(end);
-    textarea.selectionStart = textarea.selectionEnd = start + snippet.length;
-    textarea.focus();
+    // 2. Syntax highlighting with Prism (exclude mermaid)
+    if (typeof window.Prism !== 'undefined') {
+      elements.preview.querySelectorAll('pre > code').forEach(code => {
+        if (!code.classList.contains('mermaid') && !code.classList.contains('language-mermaid')) {
+          try {
+            window.Prism.highlightElement(code);
+          } catch (e) {}
+        }
+      });
+    }
 
-    state.content = textarea.value;
-    updateStats(state.content);
-    localStorage.setItem('markdown_lens_content', state.content);
-    renderAllPreviews();
+    // 3. Process Mermaid Diagrams
+    await processMermaidDiagrams(elements.preview);
   }
 
-  // Drag and Drop setup
-  function setupDragAndDrop() {
-    const dropzone = window;
-    let dragCounter = 0;
+  // Process Mermaid Blocks
+  async function processMermaidDiagrams(container) {
+    if (!mermaidReady || !window.mermaid || !window.mermaid.render) return;
 
-    dropzone.addEventListener('dragenter', (e) => {
-      e.preventDefault();
-      dragCounter++;
-      elements.dropOverlay.classList.add('active');
+    const selector = 'pre > code.mermaid, pre > code.language-mermaid, pre.mermaid';
+    const elementsList = Array.from(container.querySelectorAll(selector));
+
+    for (const codeEl of elementsList) {
+      const preEl = codeEl.tagName.toLowerCase() === 'pre' ? codeEl : codeEl.closest('pre');
+      if (!preEl || preEl.dataset.processed === 'true') continue;
+
+      const rawCode = codeEl.textContent.trim();
+      if (!rawCode) continue;
+
+      preEl.dataset.processed = 'true';
+
+      // Create diagram wrapper
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mermaid-wrapper';
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'mermaid-toolbar';
+      toolbar.innerHTML = `
+        <span class="mermaid-label">Diagram</span>
+        <div class="mermaid-actions">
+          <button type="button" class="btn-diagram-tool btn-toggle-code" title="Toggle Code / Diagram">Code</button>
+          <button type="button" class="btn-diagram-tool btn-copy-svg" title="Copy Diagram SVG">Copy SVG</button>
+          <button type="button" class="btn-diagram-tool btn-zoom-diagram" title="Inspect & Zoom">Zoom</button>
+        </div>
+      `;
+
+      const renderArea = document.createElement('div');
+      renderArea.className = 'mermaid-render-area';
+
+      preEl.classList.add('mermaid-raw-code');
+      preEl.style.display = 'none';
+
+      wrapper.appendChild(toolbar);
+      wrapper.appendChild(renderArea);
+
+      preEl.parentNode.insertBefore(wrapper, preEl);
+      wrapper.appendChild(preEl);
+
+      // Toggle code/diagram
+      const btnToggle = toolbar.querySelector('.btn-toggle-code');
+      btnToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const codeHidden = preEl.style.display === 'none';
+        if (codeHidden) {
+          preEl.style.display = 'block';
+          renderArea.style.display = 'none';
+          btnToggle.classList.add('active');
+        } else {
+          preEl.style.display = 'none';
+          renderArea.style.display = 'flex';
+          btnToggle.classList.remove('active');
+        }
+      });
+
+      // Render SVG
+      renderCounter++;
+      const id = `mermaid-svg-${Date.now()}-${renderCounter}`;
+
+      try {
+        const res = await window.mermaid.render(id, rawCode);
+        const svg = res.svg || '';
+        renderArea.innerHTML = svg;
+
+        // Copy SVG button
+        const btnCopy = toolbar.querySelector('.btn-copy-svg');
+        btnCopy.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            await navigator.clipboard.writeText(svg);
+            btnCopy.textContent = 'Copied!';
+            setTimeout(() => { btnCopy.textContent = 'Copy SVG'; }, 1800);
+          } catch (err) {
+            console.error(err);
+          }
+        });
+
+        // Zoom button
+        const btnZoom = toolbar.querySelector('.btn-zoom-diagram');
+        btnZoom.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openZoomModal(svg);
+        });
+
+      } catch (err) {
+        // Clean up temporary DOM artifacts if any
+        const tempEl = document.getElementById(id) || document.getElementById('d' + id);
+        if (tempEl && tempEl.parentNode) tempEl.parentNode.removeChild(tempEl);
+
+        renderArea.innerHTML = `
+          <div class="mermaid-error-notice">
+            <strong>Mermaid Syntax Notice</strong>
+            <div class="mermaid-error-msg">${escapeHtml(err.message || 'Syntax error')}</div>
+          </div>
+        `;
+        preEl.style.display = 'block';
+        btnToggle.classList.add('active');
+      }
+    }
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Zoom Modal
+  function setupModalEvents() {
+    elements.btnCloseModal.addEventListener('click', closeZoomModal);
+
+    elements.zoomModal.addEventListener('click', (e) => {
+      if (e.target === elements.zoomModal) closeZoomModal();
     });
 
-    dropzone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dragCounter--;
-      if (dragCounter <= 0) {
-        elements.dropOverlay.classList.remove('active');
-        dragCounter = 0;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && elements.zoomModal.classList.contains('active')) {
+        closeZoomModal();
       }
     });
 
-    dropzone.addEventListener('dragover', (e) => {
-      e.preventDefault();
+    function updateTransform() {
+      elements.modalCanvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${zoomScale})`;
+      elements.modalLabel.textContent = `${Math.round(zoomScale * 100)}%`;
+    }
+
+    elements.btnZoomIn.addEventListener('click', () => {
+      zoomScale = Math.min(zoomScale * 1.25, 5);
+      updateTransform();
     });
 
-    dropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dragCounter = 0;
-      elements.dropOverlay.classList.remove('active');
+    elements.btnZoomOut.addEventListener('click', () => {
+      zoomScale = Math.max(zoomScale / 1.25, 0.2);
+      updateTransform();
+    });
 
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        const file = files[0];
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          state.content = evt.target.result;
-          elements.textarea.value = state.content;
-          updateStats(state.content);
-          localStorage.setItem('markdown_lens_content', state.content);
-          renderAllPreviews();
-          showToast(`Dropped "${file.name}"`);
-        };
-        reader.readAsText(file);
+    elements.btnZoomReset.addEventListener('click', () => {
+      zoomScale = 1;
+      translateX = 0;
+      translateY = 0;
+      updateTransform();
+    });
+
+    elements.btnDownloadSvg.addEventListener('click', () => {
+      if (!currentSvg) return;
+      const blob = new Blob([currentSvg], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `diagram-${Date.now()}.svg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    // Mouse drag to pan
+    elements.viewport.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      isPanning = true;
+      startX = e.clientX - translateX;
+      startY = e.clientY - translateY;
+      elements.viewport.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      translateX = e.clientX - startX;
+      translateY = e.clientY - startY;
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isPanning) {
+        isPanning = false;
+        elements.viewport.style.cursor = 'grab';
       }
     });
+
+    // Scrollwheel to zoom
+    elements.viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 1.15 : 0.85;
+      zoomScale = Math.min(Math.max(zoomScale * delta, 0.2), 5);
+      updateTransform();
+    }, { passive: false });
   }
 
-  // Split Pane Resizing
+  function openZoomModal(svgContent) {
+    currentSvg = svgContent;
+    elements.modalCanvas.innerHTML = svgContent;
+    zoomScale = 1;
+    translateX = 0;
+    translateY = 0;
+    elements.modalCanvas.style.transform = 'translate(0px, 0px) scale(1)';
+    elements.modalLabel.textContent = '100%';
+    elements.zoomModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeZoomModal() {
+    elements.zoomModal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  // Split resize
   function setupSplitResize() {
     let isDragging = false;
 
-    elements.splitDivider.addEventListener('mousedown', (e) => {
+    elements.splitDivider.addEventListener('mousedown', () => {
       isDragging = true;
       elements.splitDivider.classList.add('dragging');
       document.body.style.cursor = 'col-resize';
@@ -298,8 +523,8 @@
 
     window.addEventListener('mousemove', (e) => {
       if (!isDragging) return;
-      const containerWidth = document.querySelector('.main-workspace').getBoundingClientRect().width;
-      const newWidth = Math.max(260, Math.min(e.clientX, containerWidth - 320));
+      const containerWidth = elements.workspace.getBoundingClientRect().width;
+      const newWidth = Math.max(260, Math.min(e.clientX, containerWidth - 280));
       elements.editorPane.style.width = `${newWidth}px`;
     });
 
@@ -309,384 +534,80 @@
         elements.splitDivider.classList.remove('dragging');
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
-        localStorage.setItem('markdown_lens_split_width', elements.editorPane.style.width);
+        localStorage.setItem('markdown_viewer_split_width', elements.editorPane.style.width);
       }
     });
   }
 
-  // Scroll Syncing
-  function setupScrollSync() {
-    elements.textarea.addEventListener('scroll', () => {
-      if (!state.syncScroll || isScrollingSync) return;
-      isScrollingSync = true;
-      const scrollRatio = elements.textarea.scrollTop / (elements.textarea.scrollHeight - elements.textarea.clientHeight || 1);
-
-      document.querySelectorAll('.window-card-body').forEach(body => {
-        body.scrollTop = scrollRatio * (body.scrollHeight - body.clientHeight);
-      });
-
-      setTimeout(() => { isScrollingSync = false; }, 40);
-    });
-  }
-
-  // Render Cards Structure in DOM
-  function renderCardsStructure() {
-    const parsers = window.MarkdownParsers.getAll();
-    elements.previewsGrid.innerHTML = '';
-    elements.tabNavBar.innerHTML = '';
-
-    // Set grid class based on layout mode
-    updateLayoutClasses();
-
-    parsers.forEach(parser => {
-      // 1. Tab Nav Item
-      const tabBtn = document.createElement('button');
-      tabBtn.className = `tab-nav-item ${parser.id === state.activeTab ? 'active' : ''}`;
-      tabBtn.dataset.parserId = parser.id;
-      tabBtn.innerHTML = `
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${parser.badgeColor};"></span>
-        ${parser.name}
-      `;
-      tabBtn.addEventListener('click', () => {
-        state.activeTab = parser.id;
-        document.querySelectorAll('.tab-nav-item').forEach(b => b.classList.remove('active'));
-        tabBtn.classList.add('active');
-        updateCardVisibility();
-      });
-      elements.tabNavBar.appendChild(tabBtn);
-
-      // 2. Window Card
-      const card = document.createElement('div');
-      card.className = 'window-card';
-      card.id = `card-${parser.id}`;
-      card.dataset.parserId = parser.id;
-
-      card.innerHTML = `
-        <div class="window-card-header">
-          <div class="window-title-group">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${parser.badgeColor};"></span>
-            <span class="window-title">${parser.name}</span>
-            <span class="engine-version">${parser.version}</span>
-            <span class="latency-badge" id="latency-${parser.id}">⚡ 0.0ms</span>
-          </div>
-          <div class="window-controls">
-            <div class="mode-toggle">
-              <button class="mode-btn active" data-mode="preview" title="Rendered HTML & Visual Diagrams">Preview</button>
-              <button class="mode-btn" data-mode="html" title="Inspect Raw HTML Output">HTML</button>
-            </div>
-            <button class="btn-win-action btn-copy-card-html" title="Copy Output HTML">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            </button>
-            <button class="btn-win-action btn-maximize-card" title="Maximize Window">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-            </button>
-          </div>
-        </div>
-        <div class="window-card-body" id="body-${parser.id}">
-          <div class="markdown-body" id="preview-${parser.id}"></div>
-          <pre class="html-source-view" id="source-${parser.id}" style="display: none;"></pre>
-        </div>
-        <div class="window-card-footer">
-          <span class="spec-tag" title="GFM Table Support">📋 Tables: ${parser.features ? (parser.features.tables ? '✅' : '❌') : '—'}</span>
-          <span class="spec-tag" title="Task List Checkboxes">☑️ Tasks: ${parser.features ? (parser.features.tasks ? '✅' : '❌') : '—'}</span>
-          <span class="spec-tag" title="Bundle Size">📦 ${parser.bundleSize}</span>
-          <span class="spec-tag" style="color:${parser.badgeColor};font-weight:600;">${parser.agentRating}</span>
-        </div>
-      `;
-
-      // Event: Mode toggle (preview vs raw HTML)
-      const modeBtns = card.querySelectorAll('.mode-btn');
-      const previewEl = card.querySelector(`#preview-${parser.id}`);
-      const sourceEl = card.querySelector(`#source-${parser.id}`);
-
-      modeBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          modeBtns.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          const mode = btn.dataset.mode;
-          state.cardModes[parser.id] = mode;
-
-          if (mode === 'html') {
-            previewEl.style.display = 'none';
-            sourceEl.style.display = 'block';
-          } else {
-            previewEl.style.display = 'block';
-            sourceEl.style.display = 'none';
-          }
-        });
-      });
-
-      // Event: Copy HTML
-      const copyBtn = card.querySelector('.btn-copy-card-html');
-      copyBtn.addEventListener('click', async () => {
-        const html = sourceEl.textContent;
-        try {
-          await navigator.clipboard.writeText(html);
-          showToast(`Copied ${parser.name} HTML!`);
-        } catch (e) {
-          showToast('Failed to copy.');
-        }
-      });
-
-      // Event: Maximize Window
-      const maxBtn = card.querySelector('.btn-maximize-card');
-      maxBtn.addEventListener('click', () => {
-        if (state.maximizedCard === parser.id) {
-          card.classList.remove('maximized');
-          state.maximizedCard = null;
-        } else {
-          document.querySelectorAll('.window-card').forEach(c => c.classList.remove('maximized'));
-          card.classList.add('maximized');
-          state.maximizedCard = parser.id;
-          card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      });
-
-      elements.previewsGrid.appendChild(card);
+  // Drag and drop
+  function setupDragAndDrop() {
+    let counter = 0;
+    window.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      counter++;
+      elements.dropOverlay.classList.add('active');
     });
 
-    updateCardVisibility();
-  }
-
-  // Update layout classes
-  function updateLayoutClasses() {
-    if (state.layout === 'tabbed') {
-      elements.tabNavBar.style.display = 'flex';
-      elements.previewsGrid.className = 'previews-grid cols-1';
-    } else if (state.layout === 'grid-1') {
-      elements.tabNavBar.style.display = 'none';
-      elements.previewsGrid.className = 'previews-grid cols-1';
-    } else {
-      elements.tabNavBar.style.display = 'none';
-      elements.previewsGrid.className = 'previews-grid cols-2';
-    }
-  }
-
-  // Update which cards are visible
-  function updateCardVisibility() {
-    const parsers = window.MarkdownParsers.getAll();
-    parsers.forEach(parser => {
-      const card = document.getElementById(`card-${parser.id}`);
-      if (!card) return;
-
-      const isEnabled = state.enabledParsers.includes(parser.id);
-      if (!isEnabled) {
-        card.style.display = 'none';
-        return;
-      }
-
-      if (state.layout === 'tabbed') {
-        card.style.display = (parser.id === state.activeTab) ? 'flex' : 'none';
-      } else {
-        card.style.display = 'flex';
+    window.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      counter--;
+      if (counter <= 0) {
+        elements.dropOverlay.classList.remove('active');
+        counter = 0;
       }
     });
-  }
 
-  // Render all enabled previews
-  async function renderAllPreviews() {
-    const parsers = window.MarkdownParsers.getAll();
-    const markdown = state.content;
+    window.addEventListener('dragover', (e) => e.preventDefault());
 
-    for (const parser of parsers) {
-      if (!state.enabledParsers.includes(parser.id)) continue;
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      counter = 0;
+      elements.dropOverlay.classList.remove('active');
 
-      // Benchmark & parse
-      const { html, durationMs } = window.MarkdownParsers.benchmark(parser.id, markdown);
-
-      // Latency badge
-      const latencyBadge = document.getElementById(`latency-${parser.id}`);
-      if (latencyBadge) {
-        const formattedLatency = durationMs < 0.1 ? '<0.1ms' : `${durationMs.toFixed(1)}ms`;
-        latencyBadge.textContent = `⚡ ${formattedLatency}`;
-        latencyBadge.style.color = durationMs > 15 ? '#f59e0b' : '#10b981';
-      }
-
-      // Raw HTML view
-      const sourceEl = document.getElementById(`source-${parser.id}`);
-      if (sourceEl) {
-        sourceEl.textContent = html;
-      }
-
-      // Visual preview
-      const previewEl = document.getElementById(`preview-${parser.id}`);
-      if (previewEl) {
-        previewEl.innerHTML = html;
-
-        // Post-process GitHub Callout Alerts (> [!NOTE], etc.)
-        enhanceAlerts(previewEl);
-
-        // Highlight code blocks with Prism (excluding mermaid)
-        highlightCodeBlocks(previewEl);
-
-        // Process Mermaid diagrams
-        await window.MermaidManager.processContainer(previewEl);
-      }
-    }
-  }
-
-  // Enhance GitHub-style Callouts (> [!NOTE], > [!TIP], etc.)
-  function enhanceAlerts(container) {
-    const blockquotes = container.querySelectorAll('blockquote');
-    blockquotes.forEach(bq => {
-      const firstP = bq.querySelector('p');
-      if (!firstP) return;
-
-      const text = firstP.innerHTML.trim();
-      const match = text.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](\s*<br\s*\/?>|\s+)?([\s\S]*)/i);
-
-      if (match) {
-        const type = match[1].toLowerCase();
-        const restContent = match[3] || '';
-
-        const iconMap = {
-          note: 'ℹ️',
-          tip: '💡',
-          important: '🟣',
-          warning: '⚠️',
-          caution: '🛑'
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const file = files[0];
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          elements.textarea.value = evt.target.result;
+          updateStats(evt.target.result);
+          localStorage.setItem('markdown_viewer_content', evt.target.result);
+          renderMarkdown(evt.target.result);
+          showToast(`Opened ${file.name}`);
         };
-
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert-callout alert-${type}`;
-
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'alert-callout-header';
-        headerDiv.innerHTML = `<span>${iconMap[type] || '📌'}</span> ${type.toUpperCase()}`;
-
-        alertDiv.appendChild(headerDiv);
-
-        firstP.innerHTML = restContent;
-        while (bq.firstChild) {
-          alertDiv.appendChild(bq.firstChild);
-        }
-
-        if (bq.parentNode) {
-          bq.parentNode.replaceChild(alertDiv, bq);
-        }
+        reader.readAsText(file);
       }
     });
   }
 
-  // Syntax highlighting with Prism
-  function highlightCodeBlocks(container) {
-    if (typeof window.Prism === 'undefined') return;
-
-    const codeBlocks = container.querySelectorAll('pre > code');
-    codeBlocks.forEach(code => {
-      // Skip mermaid diagrams
-      if (code.classList.contains('language-mermaid') || code.classList.contains('mermaid')) {
-        return;
-      }
-
-      try {
-        window.Prism.highlightElement(code);
-      } catch (e) {
-        // Fallback gracefully if language not supported
-      }
-    });
-  }
-
-  // Stats calculation
+  // Stats
   function updateStats(text) {
     const lines = text ? text.split('\n').length : 0;
     const words = text ? (text.trim().match(/\S+/g) || []).length : 0;
     const chars = text ? text.length : 0;
-    const readTimeMin = Math.ceil(words / 200);
 
     elements.statLines.textContent = lines.toLocaleString();
     elements.statWords.textContent = words.toLocaleString();
     elements.statChars.textContent = chars.toLocaleString();
-    elements.statReadTime.textContent = words > 0 ? `${readTimeMin} min` : '0 min';
   }
 
-  // Theme toggle
-  function toggleTheme() {
-    state.theme = state.theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', state.theme);
-    localStorage.setItem('markdown_lens_theme', state.theme);
-    updateThemeIcon();
-
-    window.MermaidManager.setTheme(state.theme);
-    renderAllPreviews();
-    showToast(`Switched to ${state.theme} mode`);
-  }
-
-  function updateThemeIcon() {
-    elements.btnTheme.innerHTML = state.theme === 'dark'
-      ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`
-      : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
-  }
-
-  // Layout cycle: grid-2 -> tabbed -> grid-1 -> grid-2
-  function cycleLayout() {
-    if (state.layout === 'grid-2') {
-      state.layout = 'tabbed';
-      elements.btnLayout.innerHTML = `📑 Tabbed`;
-    } else if (state.layout === 'tabbed') {
-      state.layout = 'grid-1';
-      elements.btnLayout.innerHTML = `☰ 1-Col`;
-    } else {
-      state.layout = 'grid-2';
-      elements.btnLayout.innerHTML = `⊞ 2-Col`;
-    }
-
-    localStorage.setItem('markdown_lens_layout', state.layout);
-    updateLayoutClasses();
-    updateCardVisibility();
-  }
-
-  // Comparison Matrix Modal
-  function openMatrixModal() {
-    const parsers = window.MarkdownParsers.getAll();
-    const tbody = document.getElementById('matrix-tbody');
-    tbody.innerHTML = '';
-
-    parsers.forEach(p => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td style="font-weight:600;"><span style="color:${p.badgeColor};">●</span> ${p.name}</td>
-        <td><code>${p.version}</code></td>
-        <td><strong>${p.bundleSize}</strong></td>
-        <td>${p.gfmScore}</td>
-        <td><span style="color:${p.badgeColor};font-weight:600;">${p.agentRating}</span></td>
-        <td style="font-size:0.8rem;color:var(--text-secondary);">${p.pros[0]}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-
-    elements.matrixModal.classList.add('active');
-  }
-
-  // Toast Notification
-  function showToast(message, duration = 2400) {
+  // Toast
+  function showToast(message) {
     const toast = document.createElement('div');
     toast.className = 'toast';
-    toast.innerHTML = `<span>💬</span> <span>${message}</span>`;
+    toast.textContent = message;
     elements.toastContainer.appendChild(toast);
 
     setTimeout(() => {
       toast.style.opacity = '0';
-      toast.style.transform = 'translateY(10px)';
-      toast.style.transition = 'all 0.25s ease';
+      toast.style.transition = 'opacity 0.2s ease';
       setTimeout(() => {
         if (toast.parentNode) toast.parentNode.removeChild(toast);
-      }, 250);
-    }, duration);
+      }, 200);
+    }, 2000);
   }
 
-  // Close matrix modal handler
-  document.getElementById('btn-close-matrix')?.addEventListener('click', () => {
-    elements.matrixModal.classList.remove('active');
-  });
-
-  elements.matrixModal?.addEventListener('click', (e) => {
-    if (e.target === elements.matrixModal) {
-      elements.matrixModal.classList.remove('active');
-    }
-  });
-
-  // Run init on DOM ready
+  // Run on ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

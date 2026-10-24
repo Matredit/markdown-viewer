@@ -1,7 +1,7 @@
 {
-  "name": "markdown-lens",
+  "name": "markdown-viewer",
   "version": "1.0.0",
-  "description": "Multi-engine markdown & Mermaid comparator for AI agent outputs",
+  "description": "Simple dark neutral Markdown & Mermaid viewer using Showdown",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,24 +10,9 @@
   "keywords": [
     "markdown",
     "mermaid",
-    "marked",
     "showdown",
-    "markdown-it",
-    "remarkable",
-    "agent",
-    "preview"
+    "viewer"
   ],
   "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "highlight.js": "^11.12.0",
-    "markdown-it": "^15.0.3",
-    "markdown-it-task-lists": "^2.1.1",
-    "marked": "^18.1.1",
-    "mermaid": "^12.2.0",
-    "prismjs": "^1.30.0",
-    "remarkable": "^2.0.1",
-    "showdown": "^2.1.0",
-    "snarkdown": "^2.0.0"
-  }
+  "license": "MIT"
 }
