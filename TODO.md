@@ -1,4 +1,5 @@
 - copy button for code snippets
+- make editor and preview scroll at the same time
 
 - tell it you're going to host it on gh pages
 
