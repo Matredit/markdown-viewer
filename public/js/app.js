@@ -802,7 +802,7 @@ npm start
 
 
   // ==========================================
-  // Synchronized Scrolling (Option 2: Section & Heading Anchors)
+  // Synchronized Scrolling (Accurate Block & Line Measurement)
   // ==========================================
   function buildSyncAnchors() {
     if (!elements.textarea || !elements.previewContainer || !elements.preview) return;
@@ -814,53 +814,131 @@ npm start
     }
 
     const lines = text.split('\n');
-    const totalLines = lines.length;
-    const mdAnchors = [];
-    let inCode = false;
+    const cs = window.getComputedStyle(elements.textarea);
 
+    // 1. Measure exact line pixel positions using a hidden mirror div
+    // This perfectly accounts for font metrics, paddings, and soft-wrapped lines.
+    const mirror = document.createElement('div');
+    mirror.style.position = 'absolute';
+    mirror.style.top = '-9999px';
+    mirror.style.left = '-9999px';
+    mirror.style.visibility = 'hidden';
+    mirror.style.pointerEvents = 'none';
+    mirror.style.boxSizing = cs.boxSizing;
+    mirror.style.width = elements.textarea.clientWidth + 'px';
+    mirror.style.padding = cs.padding;
+    mirror.style.border = cs.border;
+    mirror.style.fontFamily = cs.fontFamily;
+    mirror.style.fontSize = cs.fontSize;
+    mirror.style.lineHeight = cs.lineHeight;
+    mirror.style.whiteSpace = 'pre-wrap';
+    mirror.style.wordBreak = 'break-word';
+    mirror.style.tabSize = cs.tabSize;
+
+    let mirrorHtml = '';
+    for (let i = 0; i < lines.length; i++) {
+      const escaped = lines[i] ? lines[i].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '&nbsp;';
+      mirrorHtml += '<span id="sync-l-' + i + '">' + escaped + '</span>\n';
+    }
+    mirror.innerHTML = mirrorHtml;
+    document.body.appendChild(mirror);
+
+    const paddingTop = parseFloat(cs.paddingTop) || 0;
+    const lineTops = new Float32Array(lines.length);
+    for (let i = 0; i < lines.length; i++) {
+      const el = document.getElementById('sync-l-' + i);
+      lineTops[i] = el ? Math.max(0, el.offsetTop - paddingTop) : 0;
+    }
+    document.body.removeChild(mirror);
+
+    // 2. Identify rich block elements in markdown (headings, code/diagrams, tables, lists, quotes, paragraphs)
+    const mdBlocks = [];
+    let inCode = false;
     lines.forEach((line, idx) => {
       const trimmed = line.trim();
       if (trimmed.startsWith('```')) {
-        if (!inCode && trimmed.startsWith('```mermaid')) {
-          mdAnchors.push({ type: 'mermaid', line: idx });
+        if (!inCode) {
+          mdBlocks.push({ type: 'code', line: idx, text: trimmed });
         }
         inCode = !inCode;
         return;
       }
-      if (!inCode) {
-        if (/^#{1,6}\s+/.test(trimmed)) {
-          mdAnchors.push({ type: 'heading', line: idx });
-        } else if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) {
-          mdAnchors.push({ type: 'hr', line: idx });
+      if (inCode) return;
+
+      if (/^#{1,6}\s+/.test(trimmed)) {
+        const level = trimmed.match(/^#{1,6}/)[0].length;
+        mdBlocks.push({ type: 'heading', level, line: idx, text: trimmed.replace(/^#{1,6}\s+/, '').trim() });
+      } else if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) {
+        mdBlocks.push({ type: 'hr', line: idx, text: '---' });
+      } else if (/^\|.+\|\s*$/.test(trimmed)) {
+        if (idx === 0 || !/^\|.+\|\s*$/.test(lines[idx - 1].trim())) {
+          mdBlocks.push({ type: 'table', line: idx, text: 'table' });
         }
+      } else if (/^\s*([*+-]|\d+\.)\s+/.test(line)) {
+        mdBlocks.push({ type: 'li', line: idx, text: trimmed.slice(0, 40) });
+      } else if (/^>\s+/.test(trimmed)) {
+        if (idx === 0 || !/^>\s+/.test(lines[idx - 1].trim())) {
+          mdBlocks.push({ type: 'quote', line: idx, text: trimmed.slice(0, 40) });
+        }
+      } else if (trimmed.length > 0 && (idx === 0 || lines[idx - 1].trim().length === 0)) {
+        mdBlocks.push({ type: 'p', line: idx, text: trimmed.slice(0, 40) });
       }
     });
 
-    const previewElements = elements.preview.querySelectorAll('h1, h2, h3, h4, h5, h6, .mermaid-wrapper, hr');
+    // 3. Match with preview block elements
+    const previewBlocks = Array.from(elements.preview.querySelectorAll(
+      'h1, h2, h3, h4, h5, h6, hr, table, pre, .mermaid-wrapper, blockquote, ul > li, ol > li, p'
+    )).filter(el => {
+      if (el.closest('.mermaid-wrapper') && !el.classList.contains('mermaid-wrapper')) return false;
+      if (el.tagName === 'P' && !el.textContent.trim()) return false;
+      return true;
+    });
 
     const maxEditor = Math.max(1, elements.textarea.scrollHeight - elements.textarea.clientHeight);
     const maxPreview = Math.max(1, elements.previewContainer.scrollHeight - elements.previewContainer.clientHeight);
+    const cRect = elements.previewContainer.getBoundingClientRect();
+    const cScrollTop = elements.previewContainer.scrollTop;
 
     const rawPairs = [
       { editorOffset: 0, previewOffset: 0 }
     ];
 
-    const cRect = elements.previewContainer.getBoundingClientRect();
-    const cScrollTop = elements.previewContainer.scrollTop;
+    let pSearchIdx = 0;
+    mdBlocks.forEach((mb) => {
+      const eTop = lineTops[mb.line];
 
-    const count = Math.min(mdAnchors.length, previewElements.length);
-    for (let i = 0; i < count; i++) {
-      const m = mdAnchors[i];
-      const pEl = previewElements[i];
-      const pRect = pEl.getBoundingClientRect();
-      const pOffset = Math.max(0, pRect.top - cRect.top + cScrollTop);
-      const eOffset = Math.round((m.line / Math.max(1, totalLines)) * maxEditor);
+      let foundIdx = -1;
+      for (let pi = pSearchIdx; pi < Math.min(pSearchIdx + 6, previewBlocks.length); pi++) {
+        const pEl = previewBlocks[pi];
+        const pTag = pEl.tagName.toLowerCase();
 
-      rawPairs.push({
-        editorOffset: Math.min(maxEditor, Math.max(0, eOffset)),
-        previewOffset: Math.min(maxPreview, Math.max(0, pOffset))
-      });
-    }
+        let matches = false;
+        if (mb.type === 'heading' && pTag === 'h' + mb.level) matches = true;
+        else if (mb.type === 'hr' && pTag === 'hr') matches = true;
+        else if (mb.type === 'table' && pTag === 'table') matches = true;
+        else if (mb.type === 'code' && (pTag === 'pre' || pEl.classList.contains('mermaid-wrapper'))) matches = true;
+        else if (mb.type === 'li' && pTag === 'li') matches = true;
+        else if (mb.type === 'quote' && pTag === 'blockquote') matches = true;
+        else if (mb.type === 'p' && pTag === 'p') matches = true;
+
+        if (matches) {
+          foundIdx = pi;
+          break;
+        }
+      }
+
+      if (foundIdx !== -1) {
+        const pEl = previewBlocks[foundIdx];
+        const pRect = pEl.getBoundingClientRect();
+        const pTop = Math.max(0, pRect.top - cRect.top + cScrollTop);
+
+        rawPairs.push({
+          editorOffset: Math.min(maxEditor, Math.max(0, Math.round(eTop))),
+          previewOffset: Math.min(maxPreview, Math.max(0, Math.round(pTop)))
+        });
+        pSearchIdx = foundIdx + 1;
+      }
+    });
 
     rawPairs.push({ editorOffset: maxEditor, previewOffset: maxPreview });
     rawPairs.sort((a, b) => a.editorOffset - b.editorOffset);
@@ -871,15 +949,12 @@ npm start
       const curr = rawPairs[i];
       const prev = clean[clean.length - 1];
       if (curr.editorOffset >= prev.editorOffset && curr.previewOffset >= prev.previewOffset) {
-        if (curr.editorOffset === prev.editorOffset && curr.previewOffset === prev.previewOffset) {
-          continue;
-        }
+        if (curr.editorOffset === prev.editorOffset && curr.previewOffset === prev.previewOffset) continue;
         clean.push(curr);
       }
     }
 
-    const last = clean[clean.length - 1];
-    if (last.editorOffset !== maxEditor || last.previewOffset !== maxPreview) {
+    if (clean[clean.length - 1].editorOffset !== maxEditor || clean[clean.length - 1].previewOffset !== maxPreview) {
       clean.push({ editorOffset: maxEditor, previewOffset: maxPreview });
     }
 
