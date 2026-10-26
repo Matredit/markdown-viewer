@@ -1,4 +1,4 @@
-- make editor and preview scroll at the same time
+- it scrolls well, but sometimes can't reach to the bottom
 - copy button for code snippets
 - ```tsx and jsx don't have syntax highlighting
 - doesn't render:   $$\text{ratio} = \frac{\text{scrollTop}}{\text{scrollHeight} - \text{clientHeight}}$$
