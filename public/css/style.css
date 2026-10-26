@@ -172,6 +172,21 @@ html, body {
   color: #000000;
 }
 
+.btn-sync {
+  opacity: 0.7;
+}
+
+.btn-sync:hover {
+  opacity: 1;
+}
+
+.btn-sync.active {
+  opacity: 1;
+  background: var(--bg-surface-raised);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
 .btn-group {
   display: flex;
   border: 1px solid var(--btn-border);

@@ -124,6 +124,7 @@ npm start
   const elements = {
     textarea: document.getElementById('markdown-input'),
     preview: document.getElementById('preview-content'),
+    previewContainer: document.querySelector('.preview-content'),
     workspace: document.getElementById('workspace'),
     editorPane: document.getElementById('editor-pane'),
     splitDivider: document.getElementById('split-divider'),
@@ -132,6 +133,7 @@ npm start
     btnCopyHtml: document.getElementById('btn-copy-html'),
     btnGuide: document.getElementById('btn-guide'),
     btnClear: document.getElementById('btn-clear'),
+    btnSync: document.getElementById('btn-sync'),
     btnSample: document.getElementById('btn-sample'),
     modeBtns: document.querySelectorAll('.btn-mode'),
     statLines: document.getElementById('stat-lines'),
@@ -159,6 +161,13 @@ npm start
   let zoomScale = 1;
   let isPanning = false;
   let startX = 0, startY = 0, translateX = 0, translateY = 0;
+
+  // Sync scroll state (Option 2: Section & Heading Anchors)
+  let syncScrollEnabled = localStorage.getItem('markdown_viewer_sync_scroll') !== 'false';
+  let syncPairs = [];
+  let activeScrollSource = null;
+  let isSyncing = false;
+  let syncRafId = null;
 
   // Initialize
   function init() {
@@ -190,6 +199,7 @@ npm start
 
     bindEvents();
     setupHotkeys();
+    setupSyncScroll();
 
     if (new URLSearchParams(window.location.search).get('guide') === 'true') {
       openGuideModal();
@@ -378,6 +388,11 @@ npm start
           e.preventDefault();
           handleCopyHtml();
         }
+        // Alt+X: Toggle sync scroll
+        else if (key === 'x') {
+          e.preventDefault();
+          toggleSyncScroll();
+        }
       }
     });
   }
@@ -391,8 +406,13 @@ npm start
     elements.workspace.classList.remove('preview-only', 'editor-only');
     if (mode === 'preview') {
       elements.workspace.classList.add('preview-only');
+      if (elements.btnSync) elements.btnSync.style.display = 'none';
     } else if (mode === 'editor') {
       elements.workspace.classList.add('editor-only');
+      if (elements.btnSync) elements.btnSync.style.display = 'none';
+    } else {
+      if (elements.btnSync) elements.btnSync.style.display = '';
+      setTimeout(buildSyncAnchors, 60);
     }
   }
 
@@ -404,6 +424,7 @@ npm start
     }
 
     if (!markdown || !markdown.trim()) {
+      syncPairs = [];
       elements.preview.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">✍️</div>
@@ -431,6 +452,9 @@ npm start
 
     // 3. Process Mermaid Diagrams
     await processMermaidDiagrams(elements.preview);
+
+    // 4. Update sync scroll anchors
+    buildSyncAnchors();
   }
 
   // Process Mermaid Blocks
@@ -771,8 +795,180 @@ npm start
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
         localStorage.setItem('markdown_viewer_split_width', elements.editorPane.style.width);
+        buildSyncAnchors();
       }
     });
+  }
+
+
+  // ==========================================
+  // Synchronized Scrolling (Option 2: Section & Heading Anchors)
+  // ==========================================
+  function buildSyncAnchors() {
+    if (!elements.textarea || !elements.previewContainer || !elements.preview) return;
+
+    const text = elements.textarea.value;
+    if (!text || !text.trim()) {
+      syncPairs = [];
+      return;
+    }
+
+    const lines = text.split('\n');
+    const totalLines = lines.length;
+    const mdAnchors = [];
+    let inCode = false;
+
+    lines.forEach((line, idx) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('```')) {
+        if (!inCode && trimmed.startsWith('```mermaid')) {
+          mdAnchors.push({ type: 'mermaid', line: idx });
+        }
+        inCode = !inCode;
+        return;
+      }
+      if (!inCode) {
+        if (/^#{1,6}\s+/.test(trimmed)) {
+          mdAnchors.push({ type: 'heading', line: idx });
+        } else if (/^(?:---|\*\*\*|___)\s*$/.test(trimmed)) {
+          mdAnchors.push({ type: 'hr', line: idx });
+        }
+      }
+    });
+
+    const previewElements = elements.preview.querySelectorAll('h1, h2, h3, h4, h5, h6, .mermaid-wrapper, hr');
+
+    const maxEditor = Math.max(1, elements.textarea.scrollHeight - elements.textarea.clientHeight);
+    const maxPreview = Math.max(1, elements.previewContainer.scrollHeight - elements.previewContainer.clientHeight);
+
+    const rawPairs = [
+      { editorOffset: 0, previewOffset: 0 }
+    ];
+
+    const cRect = elements.previewContainer.getBoundingClientRect();
+    const cScrollTop = elements.previewContainer.scrollTop;
+
+    const count = Math.min(mdAnchors.length, previewElements.length);
+    for (let i = 0; i < count; i++) {
+      const m = mdAnchors[i];
+      const pEl = previewElements[i];
+      const pRect = pEl.getBoundingClientRect();
+      const pOffset = Math.max(0, pRect.top - cRect.top + cScrollTop);
+      const eOffset = Math.round((m.line / Math.max(1, totalLines)) * maxEditor);
+
+      rawPairs.push({
+        editorOffset: Math.min(maxEditor, Math.max(0, eOffset)),
+        previewOffset: Math.min(maxPreview, Math.max(0, pOffset))
+      });
+    }
+
+    rawPairs.push({ editorOffset: maxEditor, previewOffset: maxPreview });
+    rawPairs.sort((a, b) => a.editorOffset - b.editorOffset);
+
+    // Filter to ensure strictly monotonic non-decreasing progression
+    const clean = [rawPairs[0]];
+    for (let i = 1; i < rawPairs.length; i++) {
+      const curr = rawPairs[i];
+      const prev = clean[clean.length - 1];
+      if (curr.editorOffset >= prev.editorOffset && curr.previewOffset >= prev.previewOffset) {
+        if (curr.editorOffset === prev.editorOffset && curr.previewOffset === prev.previewOffset) {
+          continue;
+        }
+        clean.push(curr);
+      }
+    }
+
+    const last = clean[clean.length - 1];
+    if (last.editorOffset !== maxEditor || last.previewOffset !== maxPreview) {
+      clean.push({ editorOffset: maxEditor, previewOffset: maxPreview });
+    }
+
+    syncPairs = clean;
+  }
+
+  function getSyncTarget(sourcePos, sourceKey, targetKey) {
+    if (!syncPairs || syncPairs.length === 0) return 0;
+    if (sourcePos <= syncPairs[0][sourceKey]) return syncPairs[0][targetKey];
+    const last = syncPairs[syncPairs.length - 1];
+    if (sourcePos >= last[sourceKey]) return last[targetKey];
+
+    for (let i = 0; i < syncPairs.length - 1; i++) {
+      const a = syncPairs[i];
+      const b = syncPairs[i + 1];
+      if (sourcePos >= a[sourceKey] && sourcePos <= b[sourceKey]) {
+        const span = b[sourceKey] - a[sourceKey];
+        if (span <= 0) return a[targetKey];
+        const ratio = (sourcePos - a[sourceKey]) / span;
+        return Math.round(a[targetKey] + ratio * (b[targetKey] - a[targetKey]));
+      }
+    }
+    return last[targetKey];
+  }
+
+  function setupSyncScroll() {
+    if (!elements.textarea || !elements.previewContainer) return;
+
+    // Track which pane is actively driven by user
+    elements.textarea.addEventListener('mouseenter', () => { activeScrollSource = 'editor'; });
+    elements.previewContainer.addEventListener('mouseenter', () => { activeScrollSource = 'preview'; });
+
+    elements.textarea.addEventListener('pointerdown', () => { activeScrollSource = 'editor'; });
+    elements.previewContainer.addEventListener('pointerdown', () => { activeScrollSource = 'preview'; });
+
+    elements.textarea.addEventListener('wheel', () => { activeScrollSource = 'editor'; }, { passive: true });
+    elements.previewContainer.addEventListener('wheel', () => { activeScrollSource = 'preview'; }, { passive: true });
+
+    elements.textarea.addEventListener('touchstart', () => { activeScrollSource = 'editor'; }, { passive: true });
+    elements.previewContainer.addEventListener('touchstart', () => { activeScrollSource = 'preview'; }, { passive: true });
+
+    // Editor scroll -> syncs Preview
+    elements.textarea.addEventListener('scroll', () => {
+      if (!syncScrollEnabled || isSyncing || activeScrollSource === 'preview') return;
+      if (syncRafId) cancelAnimationFrame(syncRafId);
+      syncRafId = requestAnimationFrame(() => {
+        isSyncing = true;
+        const target = getSyncTarget(elements.textarea.scrollTop, 'editorOffset', 'previewOffset');
+        elements.previewContainer.scrollTop = target;
+        requestAnimationFrame(() => { isSyncing = false; });
+      });
+    }, { passive: true });
+
+    // Preview scroll -> syncs Editor
+    elements.previewContainer.addEventListener('scroll', () => {
+      if (!syncScrollEnabled || isSyncing || activeScrollSource === 'editor') return;
+      if (syncRafId) cancelAnimationFrame(syncRafId);
+      syncRafId = requestAnimationFrame(() => {
+        isSyncing = true;
+        const target = getSyncTarget(elements.previewContainer.scrollTop, 'previewOffset', 'editorOffset');
+        elements.textarea.scrollTop = target;
+        requestAnimationFrame(() => { isSyncing = false; });
+      });
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+      buildSyncAnchors();
+    });
+
+    elements.btnSync?.addEventListener('click', toggleSyncScroll);
+    updateSyncButtonUI();
+  }
+
+  function toggleSyncScroll() {
+    syncScrollEnabled = !syncScrollEnabled;
+    localStorage.setItem('markdown_viewer_sync_scroll', syncScrollEnabled);
+    updateSyncButtonUI();
+    showToast(syncScrollEnabled ? 'Sync Scroll: Enabled (Alt+X)' : 'Sync Scroll: Disabled (Alt+X)');
+  }
+
+  function updateSyncButtonUI() {
+    if (!elements.btnSync) return;
+    if (syncScrollEnabled) {
+      elements.btnSync.classList.add('active');
+      elements.btnSync.title = 'Synchronized scrolling is ON in Split view (Alt+X)';
+    } else {
+      elements.btnSync.classList.remove('active');
+      elements.btnSync.title = 'Synchronized scrolling is OFF (Alt+X)';
+    }
   }
 
   // Drag and drop
