@@ -465,7 +465,11 @@ sequenceDiagram
         <span id="notes-count-text" class="notes-count-label">Saved Notes</span>
         <div class="notes-toolbar-actions">
           <button type="button" id="btn-notes-new" class="btn-note-tool" title="Start fresh blank note">+ New Note</button>
-          <button type="button" id="btn-notes-export" class="btn-note-tool" title="Download all notes in a .zip archive">Export All (.zip)</button>
+          <button type="button" id="btn-notes-import-json" class="btn-note-tool" title="Restore notes from JSON backup file">Import (.json)</button>
+          <button type="button" id="btn-notes-import-md" class="btn-note-tool" title="Import markdown files">Import (.md)</button>
+          <button type="button" id="btn-notes-export" class="btn-note-tool" title="Download all notes in a .zip archive (includes .md files + JSON backup)">Export All (.zip)</button>
+          <input type="file" id="file-import-json" accept=".json,application/json" style="display:none;">
+          <input type="file" id="file-import-md" accept=".md,.markdown,.txt" multiple style="display:none;">
         </div>
       </div>
 
@@ -477,7 +481,7 @@ sequenceDiagram
         <div class="notes-footer-keys">
           <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
           <span><kbd>Enter</kbd> Open</span>
-          <span><kbd>F2</kbd> Rename</span>
+          <span><kbd>F2</kbd> Edit</span>
           <span><kbd>Del</kbd> Delete</span>
           <span><kbd>Esc</kbd> Close</span>
         </div>
@@ -495,24 +499,32 @@ sequenceDiagram
       </div>
 
       <div class="save-modal-body">
-        <p class="save-modal-intro">Save this markdown doc to browser storage with an automatic timestamp prefix.</p>
-        
-        <div class="save-input-group">
-          <span class="save-prefix" id="save-timestamp-prefix">2026-10-27_03-20_</span>
+        <div class="form-field">
+          <label class="form-label" for="save-note-title">Note Title</label>
           <input 
             type="text" 
-            id="save-note-name" 
-            class="save-note-input" 
-            placeholder="note-title"
+            id="save-note-title" 
+            class="modal-input" 
+            placeholder="e.g. agent-architecture"
             autocomplete="off"
             spellcheck="false"
           >
-          <span class="save-suffix">.md</span>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="save-note-desc">Description <span class="form-label-muted">(optional context/summary)</span></label>
+          <textarea 
+            id="save-note-desc" 
+            class="modal-textarea" 
+            rows="2" 
+            placeholder="Short notes or context to help find this later..."
+            spellcheck="false"
+          ></textarea>
         </div>
 
         <div class="save-preview-box">
-          <span class="save-preview-label">Full Filename:</span>
-          <span class="save-preview-val" id="save-filename-preview">2026-10-27_03-20_note.md</span>
+          <span class="save-preview-label">Export format:</span>
+          <span class="save-preview-val" id="save-filename-preview">2026-10-27_note.md</span>
         </div>
 
         <div class="save-modal-actions">
@@ -522,7 +534,51 @@ sequenceDiagram
       </div>
 
       <div class="modal-footer">
-        <span>Persistent IndexedDB storage &bull; Will not vanish on restart or crash.</span>
+        <span>Stored in browser IndexedDB &bull; Title is kept clean; date prefix added on export.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Note Details Modal (F2) -->
+  <div class="modal-backdrop" id="edit-note-modal">
+    <div class="modal-dialog modal-edit">
+      <div class="modal-header">
+        <span class="modal-title">Edit Note Details</span>
+        <button class="btn-modal-close" id="btn-close-edit" title="Close (Esc)">✕</button>
+      </div>
+
+      <div class="save-modal-body">
+        <div class="form-field">
+          <label class="form-label" for="edit-note-title">Note Title</label>
+          <input 
+            type="text" 
+            id="edit-note-title" 
+            class="modal-input" 
+            placeholder="Note Title"
+            autocomplete="off"
+            spellcheck="false"
+          >
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="edit-note-desc">Description <span class="form-label-muted">(optional context/summary)</span></label>
+          <textarea 
+            id="edit-note-desc" 
+            class="modal-textarea" 
+            rows="3" 
+            placeholder="Short context or description..."
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <div class="save-modal-actions">
+          <button type="button" class="btn" id="btn-cancel-edit">Cancel</button>
+          <button type="button" class="btn btn-save-confirm" id="btn-confirm-edit">Save Changes <span class="kbd-hint">Enter</span></button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <span>Press <kbd>Enter</kbd> to save changes, <kbd>Esc</kbd> to cancel.</span>
       </div>
     </div>
   </div>
@@ -540,6 +596,7 @@ sequenceDiagram
   <script src="vendor/prism-components/prism-yaml.min.js"></script>
 
   <!-- Application Logic & Modular Storage -->
+  <script src="js/notes-search.js"></script>
   <script src="js/notes.js"></script>
   <script src="js/app.js"></script>
 </body>

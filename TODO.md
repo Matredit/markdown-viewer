@@ -1,3 +1,5 @@
+- currently when pasted with a note opened, it doens't add the "edited" mark on it. the whole thing with "clear" button on the top, "New Note" in the search modal is sus. we should make it more clear.
+
 - import exported notes (for new device). do we need .json for that in there right now or just files is fine for now?
 - search by more than just name, it should store metadata like creation date, last modified.
   maybe add description to file. then search by name, then by desc, then by content (if possible)

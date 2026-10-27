@@ -1,11 +1,12 @@
 /**
  * Notes Manager & Storage Module for Markdown Viewer
  * 
- * Provides:
- * 1. NotesDB: Persistent IndexedDB storage for unlimited agent markdown notes
+ * Architecture:
+ * 1. NotesDB: Persistent IndexedDB storage for markdown notes
  * 2. ZipBuilder: Zero-dependency in-browser standard ZIP archive generator
- * 3. NotesManager: Keyboard-driven Command Palette (Ctrl+K), quick save (Ctrl+S),
- *    fuzzy search, inline rename, delete with undo, and bulk zip export.
+ * 3. NotesBackupManager: ZIP packaging, JSON backup restore, and multi-file .md import
+ * 4. NotesManager: UI controller for Search Palette (Ctrl+K), quick save (Ctrl+S),
+ *    Edit Note modal (F2), MRU sorting, and active session tracking.
  */
 
 (function () {
@@ -30,6 +31,7 @@
           if (!db.objectStoreNames.contains('notes')) {
             const store = db.createObjectStore('notes', { keyPath: 'id' });
             store.createIndex('updatedAt', 'updatedAt', { unique: false });
+            store.createIndex('lastOpenedAt', 'lastOpenedAt', { unique: false });
             store.createIndex('title', 'title', { unique: false });
           }
         };
@@ -49,7 +51,12 @@
         const request = store.getAll();
         request.onsuccess = () => {
           const list = request.result || [];
-          list.sort((a, b) => b.updatedAt - a.updatedAt);
+          // Normalize legacy entries if any
+          list.forEach(note => {
+            if (!note.description) note.description = '';
+            if (!note.lastOpenedAt) note.lastOpenedAt = note.updatedAt || note.createdAt || Date.now();
+          });
+          list.sort((a, b) => (b.lastOpenedAt || b.updatedAt || 0) - (a.lastOpenedAt || a.updatedAt || 0));
           resolve(list);
         };
         request.onerror = (e) => reject(e.target.error);
@@ -86,6 +93,17 @@
         const request = store.delete(id);
         request.onsuccess = () => resolve(true);
         request.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    async importBatch(notesList) {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('notes', 'readwrite');
+        const store = tx.objectStore('notes');
+        notesList.forEach(note => store.put(note));
+        tx.oncomplete = () => resolve(notesList.length);
+        tx.onerror = (e) => reject(e.target.error);
       });
     }
   }
@@ -137,7 +155,7 @@
         lv.setUint32(0, 0x04034b50, true);
         lv.setUint16(4, 20, true);
         lv.setUint16(6, 0x0800, true); // UTF-8 filename bit
-        lv.setUint16(8, 0, true);      // Uncompressed (Stored)
+        lv.setUint16(8, 0, true);      // Stored (Uncompressed)
         lv.setUint16(10, dosTime, true);
         lv.setUint16(12, dosDate, true);
         lv.setUint32(14, crc, true);
@@ -224,23 +242,56 @@
   // =========================================================================
   // 3. Helper Functions
   // =========================================================================
-  function getTimestampPrefix() {
-    const d = new Date();
+  function formatDatePrefix(timestamp) {
+    const d = new Date(timestamp || Date.now());
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}_${hours}-${minutes}_`;
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatDateSimple(timestamp) {
+    if (!timestamp) return 'unknown';
+    const d = new Date(timestamp);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[d.getMonth()]} ${d.getDate()}`;
+  }
+
+  function formatTimeAgo(timestamp) {
+    if (!timestamp) return 'never';
+    const diff = Math.max(0, Date.now() - timestamp);
+    const seconds = Math.floor(diff / 1000);
+    if (seconds < 45) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    const d = new Date(timestamp);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  }
+
+  function formatNoteMeta(note) {
+    const lines = note.content ? note.content.split('\n').length : 0;
+    const bytes = new Blob([note.content || '']).size;
+    let sizeStr = `${bytes} B`;
+    if (bytes >= 1024) sizeStr = `${(bytes / 1024).toFixed(1)} KB`;
+
+    const openedStr = `Opened ${formatTimeAgo(note.lastOpenedAt || note.updatedAt)}`;
+    const updatedStr = `Updated ${formatTimeAgo(note.updatedAt)}`;
+    const createdStr = `Created ${formatDateSimple(note.createdAt)}`;
+
+    return `${openedStr} • ${updatedStr} • ${createdStr} • ${lines} lines • ${sizeStr}`;
   }
 
   function sanitizeSlug(str) {
-    if (!str) return '';
+    if (!str) return 'untitled';
     return str
       .replace(/[\\/:*?"<>|]/g, '-')
       .replace(/\s+/g, '-')
       .replace(/--+/g, '-')
-      .replace(/^-+|-+$/g, '');
+      .replace(/^-+|-+$/g, '') || 'untitled';
   }
 
   function escapeHtml(str) {
@@ -253,28 +304,6 @@
       .replace(/'/g, '&#039;');
   }
 
-  function formatTimeAgo(timestamp) {
-    const diff = Math.max(0, Date.now() - timestamp);
-    const seconds = Math.floor(diff / 1000);
-    if (seconds < 45) return 'just now';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 30) return `${days}d ago`;
-    const d = new Date(timestamp);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
-
-  function formatNoteMeta(content, updatedAt) {
-    const lines = content ? content.split('\n').length : 0;
-    const bytes = new Blob([content || '']).size;
-    let sizeStr = `${bytes} B`;
-    if (bytes >= 1024) sizeStr = `${(bytes / 1024).toFixed(1)} KB`;
-    return `${formatTimeAgo(updatedAt)} • ${lines} lines • ${sizeStr}`;
-  }
-
   function extractSuggestedTitle(content) {
     if (!content) return 'untitled';
     const lines = content.split('\n');
@@ -282,102 +311,146 @@
       line = line.trim();
       if (line.startsWith('#')) {
         const clean = line.replace(/^#+\s*/, '').trim();
-        const slug = sanitizeSlug(clean);
-        if (slug) return slug.slice(0, 36);
+        if (clean) return clean.slice(0, 48);
       }
     }
-    return 'note';
-  }
-
-  // Fuzzy Matcher returning match boolean, score, and matched char indices
-  function fuzzyMatch(text, query) {
-    if (!query) return { match: true, score: 0, indices: [] };
-    const lowerText = text.toLowerCase();
-    const lowerQuery = query.toLowerCase().trim();
-
-    // 1. Direct Substring Match
-    const subIdx = lowerText.indexOf(lowerQuery);
-    if (subIdx !== -1) {
-      const indices = [];
-      for (let i = 0; i < lowerQuery.length; i++) indices.push(subIdx + i);
-      return { match: true, score: 2000 - subIdx, indices };
-    }
-
-    // 2. Multi-word search
-    const words = lowerQuery.split(/\s+/).filter(Boolean);
-    if (words.length > 1) {
-      const allFound = words.every(w => lowerText.includes(w));
-      if (allFound) {
-        const indices = [];
-        words.forEach(w => {
-          let idx = lowerText.indexOf(w);
-          while (idx !== -1 && idx < lowerText.length) {
-            for (let i = 0; i < w.length; i++) indices.push(idx + i);
-            idx = lowerText.indexOf(w, idx + w.length);
-          }
-        });
-        return { match: true, score: 1000, indices };
-      }
-    }
-
-    // 3. Subsequence fuzzy match
-    let tIdx = 0;
-    let score = 0;
-    let consecutive = 0;
-    const indices = [];
-    for (let qIdx = 0; qIdx < lowerQuery.length; qIdx++) {
-      const qChar = lowerQuery[qIdx];
-      let found = false;
-      while (tIdx < lowerText.length) {
-        if (lowerText[tIdx] === qChar) {
-          found = true;
-          indices.push(tIdx);
-          consecutive++;
-          score += consecutive * 15;
-          if (tIdx === 0 || /[\s_\-]/.test(lowerText[tIdx - 1])) {
-            score += 40;
-          }
-          tIdx++;
-          break;
-        }
-        consecutive = 0;
-        tIdx++;
-      }
-      if (!found) return { match: false, score: 0, indices: [] };
-    }
-    return { match: true, score, indices };
-  }
-
-  function highlightMatches(text, indices) {
-    if (!indices || indices.length === 0) return escapeHtml(text);
-    const indexSet = new Set(indices);
-    let html = '';
-    for (let i = 0; i < text.length; i++) {
-      const char = escapeHtml(text[i]);
-      if (indexSet.has(i)) {
-        html += `<mark class="search-match">${char}</mark>`;
-      } else {
-        html += char;
-      }
-    }
-    return html;
+    return 'untitled';
   }
 
   // =========================================================================
-  // 4. NotesManager: UI Orchestrator
+  // 4. NotesBackupManager: ZIP Export, JSON Restore & MD Import
+  // =========================================================================
+  class NotesBackupManager {
+    static async exportAllZip(notes) {
+      if (!notes || notes.length === 0) {
+        throw new Error('No saved notes to export');
+      }
+
+      const files = [];
+
+      // 1. Individual .md files with date prefix
+      notes.forEach(note => {
+        const datePrefix = formatDatePrefix(note.createdAt || note.updatedAt);
+        let slug = sanitizeSlug(note.title);
+        if (slug.toLowerCase().endsWith('.md')) slug = slug.slice(0, -3);
+        const fileName = `${datePrefix}_${slug}.md`;
+
+        files.push({
+          name: fileName,
+          content: note.content || ''
+        });
+      });
+
+      // 2. Structured backup JSON containing all metadata + content
+      const backupData = {
+        version: 1,
+        appName: 'Markdown Viewer',
+        exportedAt: Date.now(),
+        notesCount: notes.length,
+        notes: notes.map(n => ({
+          id: n.id,
+          title: n.title,
+          description: n.description || '',
+          content: n.content || '',
+          createdAt: n.createdAt,
+          updatedAt: n.updatedAt,
+          lastOpenedAt: n.lastOpenedAt
+        }))
+      };
+
+      files.push({
+        name: 'markdown-viewer-backup.json',
+        content: JSON.stringify(backupData, null, 2)
+      });
+
+      const zipBytes = ZipBuilder.build(files);
+      const blob = new Blob([zipBytes], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      const dateStr = formatDatePrefix(Date.now());
+      a.href = url;
+      a.download = `markdown-notes-${dateStr}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return notes.length;
+    }
+
+    static async parseJsonBackup(file) {
+      const text = await file.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Invalid JSON file format');
+      }
+
+      const rawNotes = Array.isArray(data) ? data : (data.notes || []);
+      if (!Array.isArray(rawNotes) || rawNotes.length === 0) {
+        throw new Error('No valid notes found in backup JSON');
+      }
+
+      const cleanedNotes = rawNotes.map(n => {
+        const now = Date.now();
+        return {
+          id: n.id || `note_${now}_${Math.random().toString(36).slice(2, 7)}`,
+          title: (n.title || 'Untitled Note').trim(),
+          description: (n.description || '').trim(),
+          content: n.content || '',
+          createdAt: Number(n.createdAt) || now,
+          updatedAt: Number(n.updatedAt) || now,
+          lastOpenedAt: Number(n.lastOpenedAt) || Number(n.updatedAt) || now
+        };
+      });
+
+      return cleanedNotes;
+    }
+
+    static async parseMarkdownFiles(files) {
+      const cleanedNotes = [];
+      const now = Date.now();
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const content = await file.text();
+        
+        // Strip extension
+        let title = file.name.replace(/\.(md|markdown|txt)$/i, '');
+        // Strip leading date prefix if present (e.g. 2026-10-27_)
+        title = title.replace(/^\d{4}-\d{2}-\d{2}[_-]?/, '').trim() || file.name;
+
+        cleanedNotes.push({
+          id: `note_${now + i}_${Math.random().toString(36).slice(2, 7)}`,
+          title: title,
+          description: '',
+          content: content,
+          createdAt: file.lastModified || now,
+          updatedAt: file.lastModified || now,
+          lastOpenedAt: now
+        });
+      }
+
+      return cleanedNotes;
+    }
+  }
+
+  // =========================================================================
+  // 5. NotesManager: UI Orchestrator
   // =========================================================================
   class NotesManager {
     constructor() {
       this.db = new NotesDB();
+      this.searchEngine = window.NotesSearch ? new window.NotesSearch.NotesSearchEngine() : null;
       this.cachedNotes = [];
-      this.filteredNotes = [];
+      this.searchResults = [];
       this.selectedIndex = 0;
       this.activeNoteId = null;
       this.activeNoteTitle = null;
       this.isDirty = false;
-      this.isRenaming = false;
-
-      this.currentSavePrefix = '';
+      this.editingNote = null;
     }
 
     async init() {
@@ -389,7 +462,7 @@
 
     bindDOMElements() {
       this.elements = {
-        // Main header additions
+        // Main header
         btnNotes: document.getElementById('btn-notes'),
         btnSave: document.getElementById('btn-save'),
         activeNoteIndicator: document.getElementById('active-note-indicator'),
@@ -397,28 +470,40 @@
         activeNoteDirty: document.getElementById('active-note-dirty'),
         btnUnlinkNote: document.getElementById('btn-unlink-note'),
 
-        // Notes Search / Command Palette Modal
+        // Search Palette Modal
         notesModal: document.getElementById('notes-modal'),
         notesSearchInput: document.getElementById('notes-search-input'),
         notesCountText: document.getElementById('notes-count-text'),
         notesList: document.getElementById('notes-list'),
         btnNotesNew: document.getElementById('btn-notes-new'),
         btnNotesExport: document.getElementById('btn-notes-export'),
+        btnNotesImportJson: document.getElementById('btn-notes-import-json'),
+        btnNotesImportMd: document.getElementById('btn-notes-import-md'),
+        fileImportJson: document.getElementById('file-import-json'),
+        fileImportMd: document.getElementById('file-import-md'),
         btnCloseNotes: document.getElementById('btn-close-notes'),
 
-        // Save Note Modal
+        // Save Modal
         saveModal: document.getElementById('save-modal'),
-        saveTimestampPrefix: document.getElementById('save-timestamp-prefix'),
-        saveNoteName: document.getElementById('save-note-name'),
+        saveNoteTitle: document.getElementById('save-note-title'),
+        saveNoteDesc: document.getElementById('save-note-desc'),
         saveFilenamePreview: document.getElementById('save-filename-preview'),
         btnConfirmSave: document.getElementById('btn-confirm-save'),
         btnCancelSave: document.getElementById('btn-cancel-save'),
-        btnCloseSave: document.getElementById('btn-close-save')
+        btnCloseSave: document.getElementById('btn-close-save'),
+
+        // Edit Note Modal
+        editModal: document.getElementById('edit-note-modal'),
+        editNoteTitle: document.getElementById('edit-note-title'),
+        editNoteDesc: document.getElementById('edit-note-desc'),
+        btnConfirmEdit: document.getElementById('btn-confirm-edit'),
+        btnCancelEdit: document.getElementById('btn-cancel-edit'),
+        btnCloseEdit: document.getElementById('btn-close-edit')
       };
     }
 
     bindEvents() {
-      // Header button triggers
+      // Header buttons
       if (this.elements.btnNotes) {
         this.elements.btnNotes.addEventListener('click', () => this.openNotesModal());
       }
@@ -435,7 +520,7 @@
         });
       }
 
-      // Notes Modal actions
+      // Notes Modal controls
       if (this.elements.btnCloseNotes) {
         this.elements.btnCloseNotes.addEventListener('click', () => this.closeNotesModal());
       }
@@ -446,16 +531,49 @@
         this.elements.btnNotesExport.addEventListener('click', () => this.exportAllZip());
       }
 
-      // Live search input filtering
+      // Import buttons & file inputs
+      if (this.elements.btnNotesImportJson && this.elements.fileImportJson) {
+        this.elements.btnNotesImportJson.addEventListener('click', () => {
+          this.elements.fileImportJson.value = '';
+          this.elements.fileImportJson.click();
+        });
+        this.elements.fileImportJson.addEventListener('change', (e) => this.handleImportJson(e));
+      }
+
+      if (this.elements.btnNotesImportMd && this.elements.fileImportMd) {
+        this.elements.btnNotesImportMd.addEventListener('click', () => {
+          this.elements.fileImportMd.value = '';
+          this.elements.fileImportMd.click();
+        });
+        this.elements.fileImportMd.addEventListener('change', (e) => this.handleImportMd(e));
+      }
+
+      // Drag and drop onto Notes modal
+      if (this.elements.notesModal) {
+        const dialog = this.elements.notesModal.querySelector('.modal-dialog');
+        if (dialog) {
+          dialog.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dialog.classList.add('drag-over');
+          });
+          dialog.addEventListener('dragleave', () => {
+            dialog.classList.remove('drag-over');
+          });
+          dialog.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dialog.classList.remove('drag-over');
+            this.handleDroppedFiles(e.dataTransfer.files);
+          });
+        }
+      }
+
+      // Search input live filtering & keyboard navigation
       if (this.elements.notesSearchInput) {
         this.elements.notesSearchInput.addEventListener('input', () => {
           this.filterNotes(this.elements.notesSearchInput.value);
         });
 
-        // Search input keyboard navigation
         this.elements.notesSearchInput.addEventListener('keydown', (e) => {
-          if (this.isRenaming) return;
-
           if (e.key === 'ArrowDown') {
             e.preventDefault();
             this.navigateList(1);
@@ -473,12 +591,12 @@
             this.deleteSelectedNote();
           } else if (e.key === 'F2') {
             e.preventDefault();
-            this.startRenameSelected();
+            this.openEditModalForSelected();
           }
         });
       }
 
-      // Save Modal actions
+      // Save Modal events
       if (this.elements.btnCloseSave) {
         this.elements.btnCloseSave.addEventListener('click', () => this.closeSaveModal());
       }
@@ -489,10 +607,9 @@
         this.elements.btnConfirmSave.addEventListener('click', () => this.confirmSaveModal());
       }
 
-      // Live filename preview in Save modal
-      if (this.elements.saveNoteName) {
-        this.elements.saveNoteName.addEventListener('input', () => this.updateSavePreview());
-        this.elements.saveNoteName.addEventListener('keydown', (e) => {
+      if (this.elements.saveNoteTitle) {
+        this.elements.saveNoteTitle.addEventListener('input', () => this.updateSavePreview());
+        this.elements.saveNoteTitle.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
             this.confirmSaveModal();
@@ -503,25 +620,74 @@
         });
       }
 
-      // Global Hotkeys (Ctrl+S for save, Ctrl+K / Alt+O for notes search)
+      if (this.elements.saveNoteDesc) {
+        this.elements.saveNoteDesc.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            this.confirmSaveModal();
+          }
+        });
+      }
+
+      // Edit Modal events
+      if (this.elements.btnCloseEdit) {
+        this.elements.btnCloseEdit.addEventListener('click', () => this.closeEditModal());
+      }
+      if (this.elements.btnCancelEdit) {
+        this.elements.btnCancelEdit.addEventListener('click', () => this.closeEditModal());
+      }
+      if (this.elements.btnConfirmEdit) {
+        this.elements.btnConfirmEdit.addEventListener('click', () => this.confirmEditModal());
+      }
+
+      if (this.elements.editNoteTitle) {
+        this.elements.editNoteTitle.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            this.confirmEditModal();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            this.closeEditModal();
+          }
+        });
+      }
+
+      if (this.elements.editNoteDesc) {
+        this.elements.editNoteDesc.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            this.confirmEditModal();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            this.closeEditModal();
+          }
+        });
+      }
+
+      // Global Hotkeys
       window.addEventListener('keydown', (e) => {
         const isCtrlOrMeta = e.ctrlKey || e.metaKey;
         const key = e.key.toLowerCase();
 
-        // Check if our modals are currently open
         const isNotesOpen = this.elements.notesModal && this.elements.notesModal.classList.contains('active');
         const isSaveOpen = this.elements.saveModal && this.elements.saveModal.classList.contains('active');
+        const isEditOpen = this.elements.editModal && this.elements.editModal.classList.contains('active');
 
-        // Esc closes active note modals
+        // Esc closes topmost modal
         if (e.key === 'Escape') {
-          if (isNotesOpen) {
+          if (isEditOpen) {
             e.preventDefault();
-            this.closeNotesModal();
+            this.closeEditModal();
             return;
           }
           if (isSaveOpen) {
             e.preventDefault();
             this.closeSaveModal();
+            return;
+          }
+          if (isNotesOpen) {
+            e.preventDefault();
+            this.closeNotesModal();
             return;
           }
         }
@@ -530,7 +696,6 @@
         if (isCtrlOrMeta && key === 's') {
           e.preventDefault();
           if (e.shiftKey) {
-            // Ctrl+Shift+S -> Force "Save As..."
             this.openSaveModal();
           } else {
             this.handleSaveAction();
@@ -538,7 +703,7 @@
           return;
         }
 
-        // Ctrl+K / Cmd+K or Alt+O: Search / Command Palette
+        // Ctrl+K / Cmd+K or Alt+O: Search Palette
         if ((isCtrlOrMeta && key === 'k') || (e.altKey && !isCtrlOrMeta && key === 'o')) {
           e.preventDefault();
           if (isNotesOpen) {
@@ -623,7 +788,7 @@
     }
 
     // =========================================================================
-    // Save Action Flow
+    // Save Note Flow
     // =========================================================================
     async handleSaveAction() {
       const content = window.MarkdownViewer ? window.MarkdownViewer.getContent() : '';
@@ -634,7 +799,7 @@
         return;
       }
 
-      // If note was already opened/saved before, update in-place
+      // If active note already exists, update in-place
       if (this.activeNoteId) {
         try {
           const note = await this.db.get(this.activeNoteId);
@@ -653,21 +818,19 @@
         }
       }
 
-      // Otherwise, open Save Modal for naming
+      // Otherwise, open Save Modal
       this.openSaveModal();
     }
 
     openSaveModal() {
       const content = window.MarkdownViewer ? window.MarkdownViewer.getContent() : '';
-      this.currentSavePrefix = getTimestampPrefix();
-      
-      const suggestedSlug = extractSuggestedTitle(content);
-      
-      if (this.elements.saveTimestampPrefix) {
-        this.elements.saveTimestampPrefix.textContent = this.currentSavePrefix;
+      const suggestedTitle = extractSuggestedTitle(content);
+
+      if (this.elements.saveNoteTitle) {
+        this.elements.saveNoteTitle.value = suggestedTitle;
       }
-      if (this.elements.saveNoteName) {
-        this.elements.saveNoteName.value = suggestedSlug;
+      if (this.elements.saveNoteDesc) {
+        this.elements.saveNoteDesc.value = '';
       }
 
       this.updateSavePreview();
@@ -676,11 +839,11 @@
         this.elements.saveModal.classList.add('active');
         document.body.style.overflow = 'hidden';
         setTimeout(() => {
-          if (this.elements.saveNoteName) {
-            this.elements.saveNoteName.focus();
-            this.elements.saveNoteName.select();
+          if (this.elements.saveNoteTitle) {
+            this.elements.saveNoteTitle.focus();
+            this.elements.saveNoteTitle.select();
           }
-        }, 60);
+        }, 50);
       }
     }
 
@@ -693,31 +856,32 @@
 
     updateSavePreview() {
       if (!this.elements.saveFilenamePreview) return;
-      const raw = this.elements.saveNoteName ? this.elements.saveNoteName.value.trim() : '';
-      let slug = sanitizeSlug(raw) || 'note';
-      if (slug.toLowerCase().endsWith('.md')) {
-        slug = slug.slice(0, -3);
-      }
-      const fullFilename = `${this.currentSavePrefix}${slug}.md`;
-      this.elements.saveFilenamePreview.textContent = fullFilename;
+      const raw = this.elements.saveNoteTitle ? this.elements.saveNoteTitle.value.trim() : '';
+      let slug = sanitizeSlug(raw) || 'untitled';
+      if (slug.toLowerCase().endsWith('.md')) slug = slug.slice(0, -3);
+      const datePrefix = formatDatePrefix(Date.now());
+      this.elements.saveFilenamePreview.textContent = `${datePrefix}_${slug}.md`;
     }
 
     async confirmSaveModal() {
-      const raw = this.elements.saveNoteName ? this.elements.saveNoteName.value.trim() : '';
-      let slug = sanitizeSlug(raw) || 'note';
-      if (slug.toLowerCase().endsWith('.md')) {
-        slug = slug.slice(0, -3);
+      const rawTitle = this.elements.saveNoteTitle ? this.elements.saveNoteTitle.value.trim() : '';
+      let cleanTitle = rawTitle || 'Untitled Note';
+      if (cleanTitle.toLowerCase().endsWith('.md')) {
+        cleanTitle = cleanTitle.slice(0, -3);
       }
-      const fullFilename = `${this.currentSavePrefix}${slug}.md`;
 
+      const description = this.elements.saveNoteDesc ? this.elements.saveNoteDesc.value.trim() : '';
       const content = window.MarkdownViewer ? window.MarkdownViewer.getContent() : '';
       const now = Date.now();
+
       const newNote = {
         id: `note_${now}_${Math.random().toString(36).slice(2, 7)}`,
-        title: fullFilename,
+        title: cleanTitle,
+        description: description,
         content: content,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
+        lastOpenedAt: now
       };
 
       try {
@@ -725,7 +889,7 @@
         this.setActiveNote(newNote);
         this.closeSaveModal();
         if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
-          window.MarkdownViewer.showToast(`Saved note "${fullFilename}"`);
+          window.MarkdownViewer.showToast(`Saved note "${cleanTitle}"`);
         }
       } catch (err) {
         console.error('Error saving note:', err);
@@ -736,17 +900,92 @@
     }
 
     // =========================================================================
-    // Search / Command Palette Modal Flow
+    // Edit Note Modal (Rename + Description)
+    // =========================================================================
+    openEditModalForSelected() {
+      if (this.searchResults.length === 0) return;
+      const item = this.searchResults[this.selectedIndex];
+      if (item && item.note) {
+        this.openEditModal(item.note);
+      }
+    }
+
+    openEditModal(note) {
+      if (!note) return;
+      this.editingNote = note;
+
+      if (this.elements.editNoteTitle) {
+        this.elements.editNoteTitle.value = note.title || '';
+      }
+      if (this.elements.editNoteDesc) {
+        this.elements.editNoteDesc.value = note.description || '';
+      }
+
+      if (this.elements.editModal) {
+        this.elements.editModal.classList.add('active');
+        setTimeout(() => {
+          if (this.elements.editNoteTitle) {
+            this.elements.editNoteTitle.focus();
+            this.elements.editNoteTitle.select();
+          }
+        }, 50);
+      }
+    }
+
+    closeEditModal() {
+      if (this.elements.editModal) {
+        this.elements.editModal.classList.remove('active');
+      }
+      this.editingNote = null;
+    }
+
+    async confirmEditModal() {
+      if (!this.editingNote) return;
+      const newTitle = (this.elements.editNoteTitle ? this.elements.editNoteTitle.value.trim() : '') || 'Untitled Note';
+      const newDesc = this.elements.editNoteDesc ? this.elements.editNoteDesc.value.trim() : '';
+
+      this.editingNote.title = newTitle;
+      this.editingNote.description = newDesc;
+      this.editingNote.updatedAt = Date.now();
+
+      try {
+        await this.db.put(this.editingNote);
+
+        if (this.activeNoteId === this.editingNote.id) {
+          this.activeNoteTitle = newTitle;
+          this.updateActiveNoteUI();
+        }
+
+        // Re-index search engine
+        if (this.searchEngine) {
+          this.searchEngine.buildIndex(this.cachedNotes);
+        }
+
+        this.closeEditModal();
+        this.filterNotes(this.elements.notesSearchInput ? this.elements.notesSearchInput.value : '');
+
+        if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
+          window.MarkdownViewer.showToast(`Updated "${newTitle}"`);
+        }
+      } catch (err) {
+        console.error('Error updating note:', err);
+      }
+    }
+
+    // =========================================================================
+    // Search Palette Flow
     // =========================================================================
     async openNotesModal() {
       try {
         this.cachedNotes = await this.db.getAll();
+        if (this.searchEngine) {
+          this.searchEngine.buildIndex(this.cachedNotes);
+        }
       } catch (err) {
         console.error('Error loading notes:', err);
         this.cachedNotes = [];
       }
 
-      this.isRenaming = false;
       this.selectedIndex = 0;
 
       if (this.elements.notesSearchInput) {
@@ -771,29 +1010,15 @@
         this.elements.notesModal.classList.remove('active');
         document.body.style.overflow = '';
       }
-      this.isRenaming = false;
     }
 
     filterNotes(query) {
-      const q = (query || '').trim();
-      const results = [];
-
-      for (const note of this.cachedNotes) {
-        const matchInfo = fuzzyMatch(note.title, q);
-        if (matchInfo.match) {
-          results.push({
-            note,
-            score: matchInfo.score,
-            indices: matchInfo.indices
-          });
-        }
+      if (this.searchEngine) {
+        this.searchResults = this.searchEngine.search(query);
+      } else {
+        this.searchResults = this.cachedNotes.map(n => ({ note: n, score: 0, titleIndices: [], snippetHtml: '' }));
       }
 
-      if (q) {
-        results.sort((a, b) => b.score - a.score);
-      }
-
-      this.filteredNotes = results;
       this.selectedIndex = 0;
       this.renderList();
     }
@@ -805,13 +1030,13 @@
       if (this.elements.notesCountText) {
         const query = this.elements.notesSearchInput ? this.elements.notesSearchInput.value.trim() : '';
         if (query) {
-          this.elements.notesCountText.textContent = `${this.filteredNotes.length} matching of ${totalCount} saved`;
+          this.elements.notesCountText.textContent = `${this.searchResults.length} matching of ${totalCount} saved`;
         } else {
           this.elements.notesCountText.textContent = `${totalCount} saved ${totalCount === 1 ? 'note' : 'notes'}`;
         }
       }
 
-      if (this.filteredNotes.length === 0) {
+      if (this.searchResults.length === 0) {
         const query = this.elements.notesSearchInput ? this.elements.notesSearchInput.value.trim() : '';
         if (totalCount === 0) {
           this.elements.notesList.innerHTML = `
@@ -835,7 +1060,7 @@
 
       const fragment = document.createDocumentFragment();
 
-      this.filteredNotes.forEach((item, index) => {
+      this.searchResults.forEach((item, index) => {
         const note = item.note;
         const isActive = note.id === this.activeNoteId;
         const isSelected = index === this.selectedIndex;
@@ -845,8 +1070,23 @@
         el.dataset.id = note.id;
         el.dataset.index = index;
 
-        const highlightedTitle = highlightMatches(note.title, item.indices);
-        const metaStr = formatNoteMeta(note.content, note.updatedAt);
+        const highlightedTitle = window.NotesSearch && item.titleIndices
+          ? window.NotesSearch.highlightMatches(note.title, item.indices || item.titleIndices)
+          : escapeHtml(note.title);
+
+        const metaStr = formatNoteMeta(note);
+
+        // Optional Description Row
+        let descHtml = '';
+        if (note.description) {
+          descHtml = `<div class="note-description">${escapeHtml(note.description)}</div>`;
+        }
+
+        // Optional Content Match Snippet
+        let snippetHtml = '';
+        if (item.snippetHtml) {
+          snippetHtml = `<div class="note-snippet"><span class="snippet-icon">🔍</span> "${item.snippetHtml}"</div>`;
+        }
 
         el.innerHTML = `
           <div class="note-item-left">
@@ -855,35 +1095,39 @@
               <div class="note-title-row">
                 <span class="note-title" title="${escapeHtml(note.title)}">${highlightedTitle}</span>
                 ${isActive ? '<span class="note-badge-active">Opened</span>' : ''}
+                ${item.matchTier === 'desc' ? '<span class="note-badge-match">in description</span>' : ''}
+                ${item.matchTier === 'content' ? '<span class="note-badge-match">in content</span>' : ''}
               </div>
+              ${descHtml}
+              ${snippetHtml}
               <div class="note-meta">${metaStr}</div>
             </div>
           </div>
           <div class="note-actions">
-            <button type="button" class="btn-note-action btn-note-rename" title="Rename note (F2)">Rename</button>
+            <button type="button" class="btn-note-action btn-note-edit" title="Edit title & description (F2)">Edit</button>
             <button type="button" class="btn-note-action btn-note-delete" title="Delete note (Del)">Delete</button>
           </div>
         `;
 
-        // Click to open note
+        // Click on item to open
         el.addEventListener('click', (e) => {
-          if (e.target.closest('.btn-note-action') || this.isRenaming) return;
+          if (e.target.closest('.btn-note-action')) return;
           this.openNote(note);
         });
 
         // Hover selects item
         el.addEventListener('mouseenter', () => {
-          if (!this.isRenaming && this.selectedIndex !== index) {
+          if (this.selectedIndex !== index) {
             this.selectedIndex = index;
             this.updateSelectionClasses();
           }
         });
 
-        // Rename button
-        const btnRename = el.querySelector('.btn-note-rename');
-        btnRename.addEventListener('click', (e) => {
+        // Edit button
+        const btnEdit = el.querySelector('.btn-note-edit');
+        btnEdit.addEventListener('click', (e) => {
           e.stopPropagation();
-          this.startInlineRename(el, note);
+          this.openEditModal(note);
         });
 
         // Delete button
@@ -911,8 +1155,8 @@
     }
 
     navigateList(delta) {
-      if (this.filteredNotes.length === 0) return;
-      this.selectedIndex = Math.max(0, Math.min(this.filteredNotes.length - 1, this.selectedIndex + delta));
+      if (this.searchResults.length === 0) return;
+      this.selectedIndex = Math.max(0, Math.min(this.searchResults.length - 1, this.selectedIndex + delta));
       this.updateSelectionClasses();
       this.scrollSelectedIntoView();
     }
@@ -927,123 +1171,39 @@
     }
 
     openSelectedNote() {
-      if (this.filteredNotes.length === 0) return;
-      const selected = this.filteredNotes[this.selectedIndex];
+      if (this.searchResults.length === 0) return;
+      const selected = this.searchResults[this.selectedIndex];
       if (selected && selected.note) {
         this.openNote(selected.note);
       }
     }
 
-    openNote(note) {
+    async openNote(note) {
       if (!note) return;
+
+      // Update MRU timestamp
+      note.lastOpenedAt = Date.now();
+      try {
+        await this.db.put(note);
+      } catch (e) {
+        console.warn('Failed to update lastOpenedAt:', e);
+      }
+
       if (window.MarkdownViewer && window.MarkdownViewer.setContent) {
         window.MarkdownViewer.setContent(note.content || '');
       }
+
       this.setActiveNote(note);
       this.closeNotesModal();
+
       if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
         window.MarkdownViewer.showToast(`Opened "${note.title}"`);
       }
     }
 
-    // =========================================================================
-    // Rename Action
-    // =========================================================================
-    startRenameSelected() {
-      if (this.filteredNotes.length === 0) return;
-      const selected = this.filteredNotes[this.selectedIndex];
-      if (!selected) return;
-
-      const items = this.elements.notesList.querySelectorAll('.note-item');
-      const itemEl = items[this.selectedIndex];
-      if (itemEl) {
-        this.startInlineRename(itemEl, selected.note);
-      }
-    }
-
-    startInlineRename(itemEl, note) {
-      this.isRenaming = true;
-      const titleSpan = itemEl.querySelector('.note-title');
-      if (!titleSpan) return;
-
-      const currentTitle = note.title;
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'note-rename-input';
-      input.value = currentTitle;
-
-      titleSpan.replaceWith(input);
-      input.focus();
-
-      // Select filename before .md
-      const dotIdx = currentTitle.lastIndexOf('.md');
-      if (dotIdx > 0) {
-        input.setSelectionRange(0, dotIdx);
-      } else {
-        input.select();
-      }
-
-      let committed = false;
-
-      const commit = async () => {
-        if (committed) return;
-        committed = true;
-        this.isRenaming = false;
-
-        let newName = sanitizeSlug(input.value.trim());
-        if (!newName) {
-          newName = currentTitle;
-        } else if (!newName.toLowerCase().endsWith('.md')) {
-          newName = `${newName}.md`;
-        }
-
-        if (newName !== currentTitle) {
-          note.title = newName;
-          note.updatedAt = Date.now();
-          await this.db.put(note);
-
-          if (this.activeNoteId === note.id) {
-            this.activeNoteTitle = newName;
-            this.updateActiveNoteUI();
-          }
-
-          if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
-            window.MarkdownViewer.showToast(`Renamed to "${newName}"`);
-          }
-        }
-
-        this.filterNotes(this.elements.notesSearchInput ? this.elements.notesSearchInput.value : '');
-      };
-
-      const cancel = () => {
-        if (committed) return;
-        committed = true;
-        this.isRenaming = false;
-        this.filterNotes(this.elements.notesSearchInput ? this.elements.notesSearchInput.value : '');
-      };
-
-      input.addEventListener('keydown', (e) => {
-        e.stopPropagation();
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          commit();
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          cancel();
-        }
-      });
-
-      input.addEventListener('blur', () => {
-        commit();
-      });
-    }
-
-    // =========================================================================
-    // Delete Action with Instant Undo Toast
-    // =========================================================================
     deleteSelectedNote() {
-      if (this.filteredNotes.length === 0) return;
-      const selected = this.filteredNotes[this.selectedIndex];
+      if (this.searchResults.length === 0) return;
+      const selected = this.searchResults[this.selectedIndex];
       if (selected && selected.note) {
         this.deleteNote(selected.note);
       }
@@ -1061,13 +1221,19 @@
         }
 
         this.cachedNotes = this.cachedNotes.filter(n => n.id !== note.id);
+        if (this.searchEngine) {
+          this.searchEngine.buildIndex(this.cachedNotes);
+        }
+
         this.filterNotes(this.elements.notesSearchInput ? this.elements.notesSearchInput.value : '');
 
         if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
           window.MarkdownViewer.showToast(`Deleted "${note.title}"`, null, async () => {
-            // Undo handler
             await this.db.put(noteBackup);
             this.cachedNotes.unshift(noteBackup);
+            if (this.searchEngine) {
+              this.searchEngine.buildIndex(this.cachedNotes);
+            }
             this.filterNotes(this.elements.notesSearchInput ? this.elements.notesSearchInput.value : '');
             window.MarkdownViewer.showToast(`Restored "${noteBackup.title}"`);
           });
@@ -1077,9 +1243,6 @@
       }
     }
 
-    // =========================================================================
-    // Start New Note Flow
-    // =========================================================================
     startNewNote() {
       this.closeNotesModal();
       this.unsetActiveNote();
@@ -1099,45 +1262,111 @@
     }
 
     // =========================================================================
-    // Export All Notes as standard ZIP Archive
+    // Backup & Import Actions
     // =========================================================================
     async exportAllZip() {
       try {
         const allNotes = await this.db.getAll();
-        if (allNotes.length === 0) {
-          if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
-            window.MarkdownViewer.showToast('No saved notes to export');
-          }
-          return;
-        }
-
-        const files = allNotes.map(n => ({
-          name: n.title.endsWith('.md') ? n.title : `${n.title}.md`,
-          content: n.content || ''
-        }));
-
-        const zipBytes = ZipBuilder.build(files);
-        const blob = new Blob([zipBytes], { type: 'application/zip' });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement('a');
-        const d = new Date();
-        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        a.href = url;
-        a.download = `markdown-notes-${dateStr}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-
+        const count = await NotesBackupManager.exportAllZip(allNotes);
         if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
-          window.MarkdownViewer.showToast(`Exported ${files.length} notes to ZIP archive`);
+          window.MarkdownViewer.showToast(`Exported ${count} notes to ZIP archive`);
         }
       } catch (err) {
-        console.error('Export ZIP error:', err);
         if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
-          window.MarkdownViewer.showToast('Failed to export notes archive');
+          window.MarkdownViewer.showToast(err.message || 'Failed to export notes archive');
+        }
+      }
+    }
+
+    async handleImportJson(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      try {
+        const notes = await NotesBackupManager.parseJsonBackup(file);
+        const count = await this.db.importBatch(notes);
+
+        this.cachedNotes = await this.db.getAll();
+        if (this.searchEngine) {
+          this.searchEngine.buildIndex(this.cachedNotes);
+        }
+        this.filterNotes(this.elements.notesSearchInput ? this.elements.notesSearchInput.value : '');
+
+        if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
+          window.MarkdownViewer.showToast(`Imported ${count} notes from backup JSON`);
+        }
+      } catch (err) {
+        console.error('Import JSON error:', err);
+        if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
+          window.MarkdownViewer.showToast(err.message || 'Failed to import JSON backup');
+        }
+      }
+    }
+
+    async handleImportMd(e) {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      try {
+        const notes = await NotesBackupManager.parseMarkdownFiles(files);
+        const count = await this.db.importBatch(notes);
+
+        this.cachedNotes = await this.db.getAll();
+        if (this.searchEngine) {
+          this.searchEngine.buildIndex(this.cachedNotes);
+        }
+        this.filterNotes(this.elements.notesSearchInput ? this.elements.notesSearchInput.value : '');
+
+        if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
+          window.MarkdownViewer.showToast(`Imported ${count} markdown ${count === 1 ? 'file' : 'files'}`);
+        }
+      } catch (err) {
+        console.error('Import MD error:', err);
+        if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
+          window.MarkdownViewer.showToast(err.message || 'Failed to import markdown files');
+        }
+      }
+    }
+
+    async handleDroppedFiles(fileList) {
+      if (!fileList || fileList.length === 0) return;
+
+      const files = Array.from(fileList);
+      const jsonFile = files.find(f => f.name.toLowerCase().endsWith('.json'));
+
+      if (jsonFile) {
+        try {
+          const notes = await NotesBackupManager.parseJsonBackup(jsonFile);
+          const count = await this.db.importBatch(notes);
+          this.cachedNotes = await this.db.getAll();
+          if (this.searchEngine) this.searchEngine.buildIndex(this.cachedNotes);
+          this.filterNotes(this.elements.notesSearchInput ? this.elements.notesSearchInput.value : '');
+          if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
+            window.MarkdownViewer.showToast(`Imported ${count} notes from dropped backup`);
+          }
+        } catch (err) {
+          if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
+            window.MarkdownViewer.showToast(err.message || 'Failed to parse dropped JSON');
+          }
+        }
+        return;
+      }
+
+      const mdFiles = files.filter(f => /\.(md|markdown|txt)$/i.test(f.name));
+      if (mdFiles.length > 0) {
+        try {
+          const notes = await NotesBackupManager.parseMarkdownFiles(mdFiles);
+          const count = await this.db.importBatch(notes);
+          this.cachedNotes = await this.db.getAll();
+          if (this.searchEngine) this.searchEngine.buildIndex(this.cachedNotes);
+          this.filterNotes(this.elements.notesSearchInput ? this.elements.notesSearchInput.value : '');
+          if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
+            window.MarkdownViewer.showToast(`Imported ${count} dropped markdown files`);
+          }
+        } catch (err) {
+          if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
+            window.MarkdownViewer.showToast(err.message || 'Failed to import dropped files');
+          }
         }
       }
     }

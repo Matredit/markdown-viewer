@@ -345,7 +345,8 @@ npm start
       const hasActiveModal = elements.zoomModal.classList.contains('active') ||
         elements.guideModal.classList.contains('active') ||
         (document.getElementById('notes-modal') && document.getElementById('notes-modal').classList.contains('active')) ||
-        (document.getElementById('save-modal') && document.getElementById('save-modal').classList.contains('active'));
+        (document.getElementById('save-modal') && document.getElementById('save-modal').classList.contains('active')) ||
+        (document.getElementById('edit-note-modal') && document.getElementById('edit-note-modal').classList.contains('active'));
 
       if (hasActiveModal) return;
 
