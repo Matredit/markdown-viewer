@@ -1064,7 +1064,7 @@
         this.filterNotes(this.elements.notesSearchInput ? this.elements.notesSearchInput.value : '');
 
         if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
-          window.MarkdownViewer.showToast(`Deleted "${note.title}"`, 4000, async () => {
+          window.MarkdownViewer.showToast(`Deleted "${note.title}"`, null, async () => {
             // Undo handler
             await this.db.put(noteBackup);
             this.cachedNotes.unshift(noteBackup);
@@ -1089,7 +1089,7 @@
         window.MarkdownViewer.setContent('');
 
         if (window.MarkdownViewer.showToast && prevContent && prevContent.trim()) {
-          window.MarkdownViewer.showToast('Started new note', 3500, () => {
+          window.MarkdownViewer.showToast('Started new note', null, () => {
             window.MarkdownViewer.setContent(prevContent);
           });
         } else if (window.MarkdownViewer.showToast) {

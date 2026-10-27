@@ -250,7 +250,7 @@ npm start
     updateStats('');
     localStorage.removeItem('markdown_viewer_content');
     renderMarkdown('');
-    showToast('Cleared editor', 3200, async () => {
+    showToast('Cleared editor', null, async () => {
       elements.textarea.value = lastClearedContent;
       updateStats(lastClearedContent);
       localStorage.setItem('markdown_viewer_content', lastClearedContent);
@@ -1128,7 +1128,11 @@ npm start
   }
 
   // Toast
-  function showToast(message, duration = 2000, onUndo = null) {
+  const TOAST_DURATION_DEFAULT = 2000;
+  const TOAST_DURATION_UNDO = 6000;
+
+  function showToast(message, duration = null, onUndo = null) {
+    const finalDuration = duration !== null ? duration : (onUndo ? TOAST_DURATION_UNDO : TOAST_DURATION_DEFAULT);
     const toast = document.createElement('div');
     toast.className = 'toast';
 
@@ -1138,8 +1142,9 @@ npm start
 
     if (onUndo) {
       const undoBtn = document.createElement('button');
+      undoBtn.type = 'button';
+      undoBtn.className = 'toast-undo-btn';
       undoBtn.textContent = 'Undo';
-      undoBtn.style.cssText = 'background: #2b2b2b; border: 1px solid #444444; color: #ffffff; border-radius: 3px; padding: 0.15rem 0.45rem; cursor: pointer; font-size: 0.74rem; margin-left: 0.55rem;';
       undoBtn.onclick = (e) => {
         e.stopPropagation();
         onUndo();
@@ -1156,7 +1161,7 @@ npm start
       setTimeout(() => {
         if (toast.parentNode) toast.parentNode.removeChild(toast);
       }, 200);
-    }, duration);
+    }, finalDuration);
   }
 
   // Run on ready

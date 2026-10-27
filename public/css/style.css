@@ -466,6 +466,7 @@ html, body {
 }
 
 .toast {
+  pointer-events: auto;
   background: var(--bg-surface-raised);
   border: 1px solid var(--border-default);
   color: var(--text-primary);
@@ -478,6 +479,29 @@ html, body {
   align-items: center;
   gap: 0.4rem;
   animation: toastIn 0.15s ease-out forwards;
+}
+
+.toast-undo-btn {
+  background: #282828;
+  border: 1px solid #484848;
+  color: #ffffff;
+  border-radius: 3px;
+  padding: 0.15rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 500;
+  margin-left: 0.6rem;
+  transition: all 0.15s ease;
+}
+
+.toast-undo-btn:hover {
+  background: #383838;
+  border-color: #606060;
+  color: #38bdf8;
+}
+
+.toast-undo-btn:active {
+  transform: scale(0.96);
 }
 
 @keyframes toastIn {
