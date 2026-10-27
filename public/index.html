@@ -23,9 +23,21 @@
       <div class="header-left">
         <h1 class="app-title">Markdown Viewer</h1>
         <span class="engine-tag">Showdown</span>
+        <div id="active-note-indicator" class="active-note-pill" style="display:none;" title="Currently editing note">
+          <span class="active-note-icon">📄</span>
+          <span id="active-note-title" class="active-note-name">...</span>
+          <span id="active-note-dirty" class="active-note-dirty" style="display:none;" title="Unsaved changes">•</span>
+          <button id="btn-unlink-note" class="btn-unlink-note" title="Unlink note (edit as independent draft)">✕</button>
+        </div>
       </div>
 
       <div class="header-actions">
+        <button id="btn-notes" class="btn" title="Search and manage saved notes (Ctrl+K or Alt+O)">
+          Notes <span class="kbd-hint">Ctrl+K</span>
+        </button>
+        <button id="btn-save" class="btn" title="Save note to browser storage (Ctrl+S)">
+          Save <span class="kbd-hint">Ctrl+S</span>
+        </button>
         <button id="btn-paste" class="btn" title="Paste markdown from clipboard (Alt+V)">
           Paste <span class="kbd-hint">Alt+V</span>
         </button>
@@ -431,6 +443,90 @@ sequenceDiagram
     </div>
   </div>
 
+  <!-- Notes Search / Command Palette Modal -->
+  <div class="modal-backdrop" id="notes-modal">
+    <div class="modal-dialog modal-notes">
+      <div class="notes-modal-header">
+        <div class="notes-search-box">
+          <span class="notes-search-icon">🔍</span>
+          <input 
+            type="text" 
+            id="notes-search-input" 
+            class="notes-search-input" 
+            placeholder="Search notes by name... (↑/↓ navigate, Enter open, Esc close)"
+            autocomplete="off" 
+            spellcheck="false"
+          >
+        </div>
+        <button class="btn-modal-close" id="btn-close-notes" title="Close (Esc)">✕</button>
+      </div>
+
+      <div class="notes-toolbar">
+        <span id="notes-count-text" class="notes-count-label">Saved Notes</span>
+        <div class="notes-toolbar-actions">
+          <button type="button" id="btn-notes-new" class="btn-note-tool" title="Start fresh blank note">+ New Note</button>
+          <button type="button" id="btn-notes-export" class="btn-note-tool" title="Download all notes in a .zip archive">Export All (.zip)</button>
+        </div>
+      </div>
+
+      <div class="notes-body" id="notes-list-wrap">
+        <div class="notes-list" id="notes-list"></div>
+      </div>
+
+      <div class="modal-footer notes-footer">
+        <div class="notes-footer-keys">
+          <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+          <span><kbd>Enter</kbd> Open</span>
+          <span><kbd>F2</kbd> Rename</span>
+          <span><kbd>Del</kbd> Delete</span>
+          <span><kbd>Esc</kbd> Close</span>
+        </div>
+        <span class="notes-footer-db-badge">IndexedDB</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Note Modal -->
+  <div class="modal-backdrop" id="save-modal">
+    <div class="modal-dialog modal-save">
+      <div class="modal-header">
+        <span class="modal-title">Save Markdown Note</span>
+        <button class="btn-modal-close" id="btn-close-save" title="Close (Esc)">✕</button>
+      </div>
+
+      <div class="save-modal-body">
+        <p class="save-modal-intro">Save this markdown doc to browser storage with an automatic timestamp prefix.</p>
+        
+        <div class="save-input-group">
+          <span class="save-prefix" id="save-timestamp-prefix">2026-10-27_03-20_</span>
+          <input 
+            type="text" 
+            id="save-note-name" 
+            class="save-note-input" 
+            placeholder="note-title"
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <span class="save-suffix">.md</span>
+        </div>
+
+        <div class="save-preview-box">
+          <span class="save-preview-label">Full Filename:</span>
+          <span class="save-preview-val" id="save-filename-preview">2026-10-27_03-20_note.md</span>
+        </div>
+
+        <div class="save-modal-actions">
+          <button type="button" class="btn" id="btn-cancel-save">Cancel</button>
+          <button type="button" class="btn btn-save-confirm" id="btn-confirm-save">Save Note <span class="kbd-hint">Enter</span></button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <span>Persistent IndexedDB storage &bull; Will not vanish on restart or crash.</span>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Vendor Libraries -->
@@ -443,7 +539,8 @@ sequenceDiagram
   <script src="vendor/prism-components/prism-typescript.min.js"></script>
   <script src="vendor/prism-components/prism-yaml.min.js"></script>
 
-  <!-- Application Logic -->
+  <!-- Application Logic & Modular Storage -->
+  <script src="js/notes.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

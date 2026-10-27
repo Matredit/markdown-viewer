@@ -197,6 +197,19 @@ npm start
     updateStats(content);
     renderMarkdown(content);
 
+    // Expose clean bridge for NotesManager and future refactoring
+    window.MarkdownViewer = {
+      getContent: () => elements.textarea.value,
+      setContent: (val) => {
+        elements.textarea.value = val;
+        updateStats(val);
+        localStorage.setItem('markdown_viewer_content', val);
+        renderMarkdown(val);
+      },
+      showToast: (msg, duration, onUndo) => showToast(msg, duration, onUndo),
+      render: (val) => renderMarkdown(val)
+    };
+
     bindEvents();
     setupHotkeys();
     setupSyncScroll();
@@ -229,15 +242,23 @@ npm start
   function handleClear() {
     if (!elements.textarea.value) return;
     lastClearedContent = elements.textarea.value;
+    const prevActiveId = window.NotesManager ? window.NotesManager.activeNoteId : null;
+    if (window.NotesManager) {
+      window.NotesManager.onEditorCleared();
+    }
     elements.textarea.value = '';
     updateStats('');
     localStorage.removeItem('markdown_viewer_content');
     renderMarkdown('');
-    showToast('Cleared editor', 3200, () => {
+    showToast('Cleared editor', 3200, async () => {
       elements.textarea.value = lastClearedContent;
       updateStats(lastClearedContent);
       localStorage.setItem('markdown_viewer_content', lastClearedContent);
       renderMarkdown(lastClearedContent);
+      if (prevActiveId && window.NotesManager) {
+        const note = await window.NotesManager.db.get(prevActiveId);
+        if (note) window.NotesManager.setActiveNote(note);
+      }
       showToast('Restored content');
     });
   }
@@ -282,6 +303,9 @@ npm start
       const text = elements.textarea.value;
       updateStats(text);
       localStorage.setItem('markdown_viewer_content', text);
+      if (window.NotesManager) {
+        window.NotesManager.markDirty();
+      }
 
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
@@ -317,8 +341,13 @@ npm start
   // Keyboard Shortcuts (Hotkeys)
   function setupHotkeys() {
     window.addEventListener('keydown', (e) => {
-      // Don't trigger if zoom modal is open
-      if (elements.zoomModal.classList.contains('active')) return;
+      // Don't trigger standard workspace hotkeys if any modal is open
+      const hasActiveModal = elements.zoomModal.classList.contains('active') ||
+        elements.guideModal.classList.contains('active') ||
+        (document.getElementById('notes-modal') && document.getElementById('notes-modal').classList.contains('active')) ||
+        (document.getElementById('save-modal') && document.getElementById('save-modal').classList.contains('active'));
+
+      if (hasActiveModal) return;
 
       // Check for Alt key shortcuts
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
