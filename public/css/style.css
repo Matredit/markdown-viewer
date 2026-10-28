@@ -322,6 +322,7 @@ html, body {
   justify-content: space-between;
   padding: 0 0.85rem;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .pane-label {
@@ -330,6 +331,10 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .pane-header-actions {
@@ -350,22 +355,26 @@ html, body {
 }
 
 /* Container Queries for responsive editor pane actions */
-@container editor (max-width: 420px) {
+@container editor (max-width: 530px) {
   .pane-header-actions .kbd-hint,
   .pane-header-actions .label-prefix {
     display: none;
   }
 }
 
-@container editor (max-width: 320px) {
+@container editor (max-width: 340px) {
   .pane-header {
-    padding: 0 0.5rem;
+    padding: 0 0.4rem;
   }
   .pane-header-actions {
-    gap: 0.25rem;
+    gap: 0.2rem;
   }
   .pane-header-actions .btn {
-    padding: 0.18rem 0.35rem;
+    padding: 0.15rem 0.35rem;
+    font-size: 0.7rem;
+  }
+  .pane-label-sub {
+    display: none;
   }
 }
 
