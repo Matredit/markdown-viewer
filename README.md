@@ -1,7 +1,13 @@
 # Markdown Viewer (Showdown)
-> Simple, keyboard-driven dark neutral Markdown and Mermaid diagram viewer with persistent note management for AI agent outputs.
+> Simple, keyboard-driven Markdown and Mermaid diagram viewer with persistent note management and adaptive system theme for AI agent outputs.
 
 ## Features
+
+### Adaptive System Theme
+- **Automatic System/Browser Theme Synchronization**: Automatically detects and matches your operating system and browser color scheme in real time without manual intervention.
+- **Dark Neutral Palette**: Monochromatic zinc and charcoal dark palette (`#121212` / `#181818` / `#202020`) with zero blue tint for distraction-free nighttime viewing.
+- **White Theme**: Crisp, high-contrast, clean neutral light palette (`#ffffff` / `#f4f4f5` / `#d4d4d8`) with light-adapted syntax highlighting, subtle neutral borders, and warm yellow search highlights.
+- **Adaptive Mermaid & Syntax Highlighting**: Re-initializes and re-renders Mermaid diagrams and Prism syntax highlighting tokens to match light or dark mode dynamically on OS theme changes.
 
 ### Markdown & Diagram Rendering
 - **Showdown Engine**: GitHub Flavored Markdown (tables, task lists, strikethrough, autolinks, code blocks).

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Dark Neutral Markdown Styling (Monochromatic & Clean)
+   Markdown Styling (Adaptive Monochromatic & Clean)
    ========================================================================== */
 
 .markdown-body {
@@ -7,7 +7,7 @@
   font-size: 14.5px;
   line-height: 1.65;
   word-wrap: break-word;
-  color: #d4d4d4;
+  color: var(--md-text, var(--text-primary));
   max-width: 900px;
   margin: 0 auto;
 }
@@ -23,26 +23,26 @@
   margin-bottom: 0.85rem;
   font-weight: 600;
   line-height: 1.3;
-  color: #f5f5f5;
+  color: var(--md-heading, var(--text-primary));
   letter-spacing: -0.01em;
 }
 
 .markdown-body h1 {
   font-size: 1.65rem;
   padding-bottom: 0.35rem;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .markdown-body h2 {
   font-size: 1.3rem;
   padding-bottom: 0.3rem;
-  border-bottom: 1px solid #242424;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .markdown-body h3 { font-size: 1.1rem; }
 .markdown-body h4 { font-size: 0.95rem; }
 .markdown-body h5 { font-size: 0.85rem; }
-.markdown-body h6 { font-size: 0.8rem; color: #737373; }
+.markdown-body h6 { font-size: 0.8rem; color: var(--text-muted); }
 
 /* Paragraphs & Lists */
 .markdown-body p {
@@ -72,32 +72,32 @@
 }
 
 .markdown-body input[type="checkbox"] {
-  accent-color: #888888;
+  accent-color: var(--text-secondary);
   cursor: pointer;
   vertical-align: middle;
 }
 
 /* Links */
 .markdown-body a {
-  color: #e5e5e5;
+  color: var(--accent-link);
   text-decoration: underline;
-  text-decoration-color: #555555;
+  text-decoration-color: var(--border-hover);
   text-underline-offset: 3px;
   transition: all 0.15s ease;
 }
 
 .markdown-body a:hover {
-  color: #ffffff;
-  text-decoration-color: #aaaaaa;
+  color: var(--text-primary);
+  text-decoration-color: var(--text-secondary);
 }
 
 /* Blockquotes */
 .markdown-body blockquote {
   margin: 1rem 0;
   padding: 0.65rem 1rem;
-  color: #a3a3a3;
-  background: #171717;
-  border-left: 3px solid #525252;
+  color: var(--md-quote-text, var(--text-secondary));
+  background: var(--md-quote-bg, var(--bg-surface-raised));
+  border-left: 3px solid var(--md-quote-border, var(--border-hover));
   border-radius: 0 4px 4px 0;
 }
 
@@ -112,28 +112,28 @@
   overflow: hidden;
   font-size: 0.88rem;
   border-radius: 6px;
-  border: 1px solid #282828;
+  border: 1px solid var(--md-table-outer, var(--border-default));
 }
 
 .markdown-body table th,
 .markdown-body table td {
   padding: 0.55rem 0.85rem;
-  border: 1px solid #262626;
+  border: 1px solid var(--md-table-border, var(--border-subtle));
   text-align: left;
 }
 
 .markdown-body table th {
   font-weight: 600;
-  background-color: #1a1a1a;
-  color: #f0f0f0;
+  background-color: var(--md-th-bg, var(--bg-surface-raised));
+  color: var(--md-th-color, var(--text-primary));
 }
 
 .markdown-body table tr:nth-child(even) {
-  background-color: #151515;
+  background-color: var(--md-tr-even, var(--bg-surface));
 }
 
 .markdown-body table tr:hover {
-  background-color: #1c1c1c;
+  background-color: var(--md-tr-hover, var(--bg-surface-raised));
 }
 
 /* Code & Pre */
@@ -142,9 +142,9 @@
   font-size: 0.88em;
   padding: 0.18em 0.38em;
   border-radius: 4px;
-  background-color: #1c1c1c;
-  color: #e0e0e0;
-  border: 1px solid #2c2c2c;
+  background-color: var(--code-inline-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--code-inline-border);
 }
 
 .markdown-body pre {
@@ -152,8 +152,8 @@
   padding: 0.95rem;
   overflow-x: auto;
   border-radius: 6px;
-  background-color: #141414;
-  border: 1px solid #282828;
+  background-color: var(--code-bg);
+  border: 1px solid var(--code-border);
 }
 
 .markdown-body pre code {
@@ -162,7 +162,7 @@
   line-height: 1.55;
   background-color: transparent;
   border: none;
-  color: #cccccc;
+  color: var(--code-text);
   white-space: pre;
 }
 
@@ -170,7 +170,7 @@
 .markdown-body hr {
   height: 1px;
   margin: 1.6rem 0;
-  background-color: #262626;
+  background-color: var(--md-hr, var(--border-default));
   border: 0;
 }
 
@@ -180,9 +180,9 @@
   padding: 0.15em 0.45em;
   font-size: 0.8em;
   font-family: monospace;
-  color: #e5e5e5;
-  background-color: #202020;
-  border: 1px solid #333333;
+  color: var(--kbd-text);
+  background-color: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
   border-radius: 4px;
 }
 
@@ -190,32 +190,32 @@
 .markdown-body details {
   margin: 1rem 0;
   padding: 0.65rem 0.9rem;
-  background: #171717;
-  border: 1px solid #282828;
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
 }
 
 .markdown-body details summary {
   cursor: pointer;
   font-weight: 500;
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
 
 .markdown-body details[open] summary {
   margin-bottom: 0.5rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid #262626;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 /* ==========================================================================
-   Mermaid Diagrams & Wrappers (Dark Neutral)
-   ========================================= */
+   Mermaid Diagrams & Wrappers (Adaptive Neutral)
+   ========================================================================== */
 
 .mermaid-wrapper {
   margin: 1.25rem 0;
   border-radius: 6px;
-  background: #161616;
-  border: 1px solid #282828;
+  background: var(--mermaid-bg);
+  border: 1px solid var(--mermaid-border);
   overflow: hidden;
 }
 
@@ -224,8 +224,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.35rem 0.75rem;
-  background: #1a1a1a;
-  border-bottom: 1px solid #262626;
+  background: var(--mermaid-toolbar-bg);
+  border-bottom: 1px solid var(--mermaid-border);
   font-size: 0.78rem;
 }
 
@@ -234,7 +234,7 @@
   align-items: center;
   gap: 0.35rem;
   font-weight: 500;
-  color: #888888;
+  color: var(--text-muted);
   text-transform: uppercase;
   font-size: 0.7rem;
   letter-spacing: 0.04em;
@@ -253,24 +253,24 @@
   padding: 0.2rem 0.45rem;
   font-size: 0.74rem;
   font-weight: 500;
-  background: #222222;
-  color: #a3a3a3;
-  border: 1px solid #303030;
+  background: var(--btn-code-bg);
+  color: var(--btn-code-text);
+  border: 1px solid var(--btn-code-border);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-diagram-tool:hover {
-  background: #2a2a2a;
-  color: #ffffff;
-  border-color: #444444;
+  background: var(--btn-code-hover);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
 }
 
 .btn-diagram-tool.active {
-  background: #333333;
-  color: #ffffff;
-  border-color: #555555;
+  background: var(--btn-hover);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
 }
 
 .mermaid-render-area {
@@ -293,15 +293,15 @@
   margin: 0 !important;
   border-radius: 0 !important;
   border: none !important;
-  background: #141414 !important;
+  background: var(--code-bg) !important;
 }
 
 .mermaid-error-notice {
   padding: 0.85rem 1rem;
   border-radius: 5px;
-  background: #1e1818;
-  border: 1px solid #442a2a;
-  color: #d4d4d4;
+  background: var(--mermaid-error-bg);
+  border: 1px solid var(--mermaid-error-border);
+  color: var(--mermaid-error-text);
   width: 100%;
 }
 
@@ -311,4 +311,108 @@
   color: #f87171;
   margin-top: 0.35rem;
   white-space: pre-wrap;
+}
+
+/* ==========================================================================
+   Prism Syntax Highlighting - Light Mode Token Overrides
+   ========================================================================== */
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) pre[class*="language-"],
+  :root:not([data-theme="dark"]) :not(pre) > code[class*="language-"] {
+    background: var(--code-bg) !important;
+    color: var(--code-text) !important;
+  }
+  :root:not([data-theme="dark"]) .token.comment,
+  :root:not([data-theme="dark"]) .token.prolog,
+  :root:not([data-theme="dark"]) .token.doctype,
+  :root:not([data-theme="dark"]) .token.cdata {
+    color: #6a737d !important;
+  }
+  :root:not([data-theme="dark"]) .token.punctuation {
+    color: #24292e !important;
+  }
+  :root:not([data-theme="dark"]) .token.property,
+  :root:not([data-theme="dark"]) .token.tag,
+  :root:not([data-theme="dark"]) .token.boolean,
+  :root:not([data-theme="dark"]) .token.number,
+  :root:not([data-theme="dark"]) .token.constant,
+  :root:not([data-theme="dark"]) .token.symbol {
+    color: #005cc5 !important;
+  }
+  :root:not([data-theme="dark"]) .token.selector,
+  :root:not([data-theme="dark"]) .token.attr-name,
+  :root:not([data-theme="dark"]) .token.string,
+  :root:not([data-theme="dark"]) .token.char,
+  :root:not([data-theme="dark"]) .token.builtin {
+    color: #22863a !important;
+  }
+  :root:not([data-theme="dark"]) .token.operator,
+  :root:not([data-theme="dark"]) .token.entity,
+  :root:not([data-theme="dark"]) .token.url {
+    color: #d73a49 !important;
+  }
+  :root:not([data-theme="dark"]) .token.atrule,
+  :root:not([data-theme="dark"]) .token.attr-value,
+  :root:not([data-theme="dark"]) .token.keyword {
+    color: #d73a49 !important;
+  }
+  :root:not([data-theme="dark"]) .token.function,
+  :root:not([data-theme="dark"]) .token.class-name {
+    color: #6f42c1 !important;
+  }
+  :root:not([data-theme="dark"]) .token.regex,
+  :root:not([data-theme="dark"]) .token.important,
+  :root:not([data-theme="dark"]) .token.variable {
+    color: #e36209 !important;
+  }
+}
+
+:root[data-theme="light"] pre[class*="language-"],
+:root[data-theme="light"] :not(pre) > code[class*="language-"] {
+  background: var(--code-bg) !important;
+  color: var(--code-text) !important;
+}
+:root[data-theme="light"] .token.comment,
+:root[data-theme="light"] .token.prolog,
+:root[data-theme="light"] .token.doctype,
+:root[data-theme="light"] .token.cdata {
+  color: #6a737d !important;
+}
+:root[data-theme="light"] .token.punctuation {
+  color: #24292e !important;
+}
+:root[data-theme="light"] .token.property,
+:root[data-theme="light"] .token.tag,
+:root[data-theme="light"] .token.boolean,
+:root[data-theme="light"] .token.number,
+:root[data-theme="light"] .token.constant,
+:root[data-theme="light"] .token.symbol {
+  color: #005cc5 !important;
+}
+:root[data-theme="light"] .token.selector,
+:root[data-theme="light"] .token.attr-name,
+:root[data-theme="light"] .token.string,
+:root[data-theme="light"] .token.char,
+:root[data-theme="light"] .token.builtin {
+  color: #22863a !important;
+}
+:root[data-theme="light"] .token.operator,
+:root[data-theme="light"] .token.entity,
+:root[data-theme="light"] .token.url {
+  color: #d73a49 !important;
+}
+:root[data-theme="light"] .token.atrule,
+:root[data-theme="light"] .token.attr-value,
+:root[data-theme="light"] .token.keyword {
+  color: #d73a49 !important;
+}
+:root[data-theme="light"] .token.function,
+:root[data-theme="light"] .token.class-name {
+  color: #6f42c1 !important;
+}
+:root[data-theme="light"] .token.regex,
+:root[data-theme="light"] .token.important,
+:root[data-theme="light"] .token.variable {
+  color: #e36209 !important;
 }

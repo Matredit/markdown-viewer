@@ -90,11 +90,18 @@ npm start
     });
   }
 
-  // Initialize Mermaid with Dark Neutral Theme
+  // =========================================================================
+  // System Theme Synchronization & Adaptive Mermaid Initialization
+  // =========================================================================
   let mermaidReady = false;
-  if (typeof window.mermaid !== 'undefined') {
-    try {
-      window.mermaid.initialize({
+
+  function isSystemDark() {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  function getMermaidConfig(isDark) {
+    if (isDark) {
+      return {
         startOnLoad: false,
         theme: 'dark',
         securityLevel: 'loose',
@@ -121,10 +128,68 @@ npm start
           signalColor: '#888888',
           signalTextColor: '#e5e5e5'
         }
-      });
-      mermaidReady = true;
-    } catch (e) {
-      console.error('Mermaid init error:', e);
+      };
+    } else {
+      return {
+        startOnLoad: false,
+        theme: 'default',
+        securityLevel: 'loose',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        themeVariables: {
+          darkMode: false,
+          background: '#ffffff',
+          primaryColor: '#f4f4f5',
+          primaryTextColor: '#18181b',
+          primaryBorderColor: '#d4d4d8',
+          lineColor: '#71717a',
+          secondaryColor: '#e4e4e7',
+          tertiaryColor: '#f4f4f5',
+          mainBkg: '#ffffff',
+          nodeBorder: '#d4d4d8',
+          clusterBkg: '#f8f9fa',
+          clusterBorder: '#e4e4e7',
+          defaultLinkColor: '#71717a',
+          titleColor: '#18181b',
+          edgeLabelBackground: '#ffffff',
+          actorBkg: '#ffffff',
+          actorBorder: '#d4d4d8',
+          actorTextColor: '#18181b',
+          signalColor: '#71717a',
+          signalTextColor: '#18181b'
+        }
+      };
+    }
+  }
+
+  function applySystemTheme() {
+    const isDark = isSystemDark();
+    document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+    if (typeof window.mermaid !== 'undefined') {
+      try {
+        window.mermaid.initialize(getMermaidConfig(isDark));
+        mermaidReady = true;
+      } catch (e) {
+        console.error('Mermaid init error:', e);
+      }
+    }
+  }
+
+  // Initial theme application
+  applySystemTheme();
+
+  // Listen for OS/Browser theme changes and automatically adapt
+  if (window.matchMedia) {
+    const colorSchemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemThemeChange = () => {
+      applySystemTheme();
+      if (typeof renderMarkdown === 'function') {
+        renderMarkdown();
+      }
+    };
+    if (colorSchemeMedia.addEventListener) {
+      colorSchemeMedia.addEventListener('change', handleSystemThemeChange);
+    } else if (colorSchemeMedia.addListener) {
+      colorSchemeMedia.addListener(handleSystemThemeChange);
     }
   }
 
