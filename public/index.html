@@ -38,7 +38,7 @@
         <button id="btn-save" class="btn" title="Save note to browser storage (Ctrl+S)">
           Save <span class="kbd-hint">Ctrl+S</span>
         </button>
-        <button id="btn-paste" class="btn" title="Paste markdown from clipboard (Alt+V)">
+        <button id="btn-paste" class="btn" title="Paste markdown from clipboard (Alt+V / Alt+Shift+V for fresh draft)">
           Paste <span class="kbd-hint">Alt+V</span>
         </button>
         <button id="btn-copy-md" class="btn" title="Copy original markdown (Alt+C)">
@@ -53,8 +53,8 @@
         <button id="btn-sample" class="btn" title="Load sample agent markdown (Alt+T)">
           Sample <span class="kbd-hint">Alt+T</span>
         </button>
-        <button id="btn-clear" class="btn" title="Clear text (Shift+Alt+C)">
-          Clear <span class="kbd-hint">Shift+Alt+C</span>
+        <button id="btn-new" class="btn" title="Start fresh note (Alt+N)">
+          New <span class="kbd-hint">Alt+N</span>
         </button>
         <button id="btn-sync" class="btn btn-sync active" title="Toggle synchronized scrolling in Split view (Alt+X)">
           Sync <span class="kbd-hint">Alt+X</span>
@@ -464,7 +464,6 @@ sequenceDiagram
       <div class="notes-toolbar">
         <span id="notes-count-text" class="notes-count-label">Saved Notes</span>
         <div class="notes-toolbar-actions">
-          <button type="button" id="btn-notes-new" class="btn-note-tool" title="Start fresh blank note">+ New Note</button>
           <button type="button" id="btn-notes-import-json" class="btn-note-tool" title="Restore notes from JSON backup file">Import (.json)</button>
           <button type="button" id="btn-notes-import-md" class="btn-note-tool" title="Import markdown files">Import (.md)</button>
           <button type="button" id="btn-notes-export" class="btn-note-tool" title="Download all notes in a .zip archive (includes .md files + JSON backup)">Export All (.zip)</button>

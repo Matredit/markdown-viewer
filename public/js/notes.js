@@ -475,7 +475,6 @@
         notesSearchInput: document.getElementById('notes-search-input'),
         notesCountText: document.getElementById('notes-count-text'),
         notesList: document.getElementById('notes-list'),
-        btnNotesNew: document.getElementById('btn-notes-new'),
         btnNotesExport: document.getElementById('btn-notes-export'),
         btnNotesImportJson: document.getElementById('btn-notes-import-json'),
         btnNotesImportMd: document.getElementById('btn-notes-import-md'),
@@ -523,9 +522,6 @@
       // Notes Modal controls
       if (this.elements.btnCloseNotes) {
         this.elements.btnCloseNotes.addEventListener('click', () => this.closeNotesModal());
-      }
-      if (this.elements.btnNotesNew) {
-        this.elements.btnNotesNew.addEventListener('click', () => this.startNewNote());
       }
       if (this.elements.btnNotesExport) {
         this.elements.btnNotesExport.addEventListener('click', () => this.exportAllZip());
@@ -1245,18 +1241,12 @@
 
     startNewNote() {
       this.closeNotesModal();
-      this.unsetActiveNote();
-
-      if (window.MarkdownViewer) {
-        const prevContent = window.MarkdownViewer.getContent();
-        window.MarkdownViewer.setContent('');
-
-        if (window.MarkdownViewer.showToast && prevContent && prevContent.trim()) {
-          window.MarkdownViewer.showToast('Started new note', null, () => {
-            window.MarkdownViewer.setContent(prevContent);
-          });
-        } else if (window.MarkdownViewer.showToast) {
-          window.MarkdownViewer.showToast('Started new note');
+      if (window.MarkdownViewer && window.MarkdownViewer.startNewNote) {
+        window.MarkdownViewer.startNewNote();
+      } else {
+        this.unsetActiveNote();
+        if (window.MarkdownViewer) {
+          window.MarkdownViewer.setContent('');
         }
       }
     }

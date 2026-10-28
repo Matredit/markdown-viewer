@@ -132,7 +132,7 @@ npm start
     btnCopyMd: document.getElementById('btn-copy-md'),
     btnCopyHtml: document.getElementById('btn-copy-html'),
     btnGuide: document.getElementById('btn-guide'),
-    btnClear: document.getElementById('btn-clear'),
+    btnNew: document.getElementById('btn-new'),
     btnSync: document.getElementById('btn-sync'),
     btnSample: document.getElementById('btn-sample'),
     modeBtns: document.querySelectorAll('.btn-mode'),
@@ -207,7 +207,9 @@ npm start
         renderMarkdown(val);
       },
       showToast: (msg, duration, onUndo) => showToast(msg, duration, onUndo),
-      render: (val) => renderMarkdown(val)
+      render: (val) => renderMarkdown(val),
+      startNewNote: () => handleNewNote(),
+      handlePasteFreshDraft: () => handlePasteFreshDraft()
     };
 
     bindEvents();
@@ -220,55 +222,158 @@ npm start
   }
 
   // Action Handlers
-  let lastClearedContent = '';
-
   async function handlePaste() {
     try {
       const text = await navigator.clipboard.readText();
-      if (text) {
-        elements.textarea.value = text;
-        updateStats(text);
-        localStorage.setItem('markdown_viewer_content', text);
-        renderMarkdown(text);
-        showToast('Pasted from clipboard');
-      } else {
+      if (!text) {
         showToast('Clipboard is empty');
+        return;
+      }
+
+      const prevContent = elements.textarea.value;
+      const prevActiveId = window.NotesManager ? window.NotesManager.activeNoteId : null;
+      const prevActiveTitle = window.NotesManager ? window.NotesManager.activeNoteTitle : null;
+      const wasDirty = window.NotesManager ? window.NotesManager.isDirty : false;
+
+      elements.textarea.value = text;
+      updateStats(text);
+      localStorage.setItem('markdown_viewer_content', text);
+      renderMarkdown(text);
+
+      if (prevActiveId && window.NotesManager) {
+        window.NotesManager.markDirty();
+        showToast(`Pasted into "${prevActiveTitle}"`, null, async () => {
+          elements.textarea.value = prevContent;
+          updateStats(prevContent);
+          localStorage.setItem('markdown_viewer_content', prevContent);
+          renderMarkdown(prevContent);
+          const note = await window.NotesManager.db.get(prevActiveId);
+          if (note) {
+            window.NotesManager.setActiveNote(note);
+            if (wasDirty) window.NotesManager.markDirty();
+          }
+          showToast('Restored note');
+        });
+      } else {
+        if (prevContent && prevContent.trim() && prevContent !== text) {
+          showToast('Pasted from clipboard', null, () => {
+            elements.textarea.value = prevContent;
+            updateStats(prevContent);
+            localStorage.setItem('markdown_viewer_content', prevContent);
+            renderMarkdown(prevContent);
+            showToast('Restored content');
+          });
+        } else {
+          showToast('Pasted from clipboard');
+        }
       }
     } catch (err) {
       showToast('Use Ctrl+V to paste');
     }
   }
 
-  function handleClear() {
-    if (!elements.textarea.value) return;
-    lastClearedContent = elements.textarea.value;
+  async function handlePasteFreshDraft() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) {
+        showToast('Clipboard is empty');
+        return;
+      }
+
+      const prevContent = elements.textarea.value;
+      const prevActiveId = window.NotesManager ? window.NotesManager.activeNoteId : null;
+      const wasDirty = window.NotesManager ? window.NotesManager.isDirty : false;
+
+      if (window.NotesManager) {
+        window.NotesManager.unsetActiveNote();
+      }
+
+      elements.textarea.value = text;
+      updateStats(text);
+      localStorage.setItem('markdown_viewer_content', text);
+      renderMarkdown(text);
+
+      showToast('Pasted as fresh draft', null, async () => {
+        elements.textarea.value = prevContent;
+        updateStats(prevContent);
+        localStorage.setItem('markdown_viewer_content', prevContent);
+        renderMarkdown(prevContent);
+        if (prevActiveId && window.NotesManager) {
+          const note = await window.NotesManager.db.get(prevActiveId);
+          if (note) {
+            window.NotesManager.setActiveNote(note);
+            if (wasDirty) window.NotesManager.markDirty();
+          }
+        }
+        showToast('Restored previous note & content');
+      });
+    } catch (err) {
+      showToast('Use Ctrl+V to paste');
+    }
+  }
+
+  function handleNewNote() {
+    const prevContent = elements.textarea.value;
     const prevActiveId = window.NotesManager ? window.NotesManager.activeNoteId : null;
+    const wasDirty = window.NotesManager ? window.NotesManager.isDirty : false;
+
+    if (!prevContent && !prevActiveId) {
+      showToast('Started new note');
+      return;
+    }
+
     if (window.NotesManager) {
-      window.NotesManager.onEditorCleared();
+      window.NotesManager.unsetActiveNote();
     }
     elements.textarea.value = '';
     updateStats('');
     localStorage.removeItem('markdown_viewer_content');
     renderMarkdown('');
-    showToast('Cleared editor', null, async () => {
-      elements.textarea.value = lastClearedContent;
-      updateStats(lastClearedContent);
-      localStorage.setItem('markdown_viewer_content', lastClearedContent);
-      renderMarkdown(lastClearedContent);
+
+    showToast('Started new note', null, async () => {
+      elements.textarea.value = prevContent;
+      updateStats(prevContent);
+      localStorage.setItem('markdown_viewer_content', prevContent);
+      renderMarkdown(prevContent);
       if (prevActiveId && window.NotesManager) {
         const note = await window.NotesManager.db.get(prevActiveId);
-        if (note) window.NotesManager.setActiveNote(note);
+        if (note) {
+          window.NotesManager.setActiveNote(note);
+          if (wasDirty) window.NotesManager.markDirty();
+        }
       }
-      showToast('Restored content');
+      showToast('Restored note');
     });
   }
 
   function handleSample() {
+    const prevContent = elements.textarea.value;
+    const prevActiveId = window.NotesManager ? window.NotesManager.activeNoteId : null;
+    const wasDirty = window.NotesManager ? window.NotesManager.isDirty : false;
+
     elements.textarea.value = DEFAULT_SAMPLE;
     updateStats(DEFAULT_SAMPLE);
     localStorage.setItem('markdown_viewer_content', DEFAULT_SAMPLE);
     renderMarkdown(DEFAULT_SAMPLE);
-    showToast('Loaded sample');
+
+    if (window.NotesManager && prevActiveId) {
+      window.NotesManager.markDirty();
+    }
+
+    showToast('Loaded sample', null, async () => {
+      elements.textarea.value = prevContent;
+      updateStats(prevContent);
+      localStorage.setItem('markdown_viewer_content', prevContent);
+      renderMarkdown(prevContent);
+      if (prevActiveId && window.NotesManager) {
+        const note = await window.NotesManager.db.get(prevActiveId);
+        if (note) {
+          window.NotesManager.setActiveNote(note);
+          if (wasDirty) window.NotesManager.markDirty();
+        }
+      }
+      showToast('Restored content');
+    });
   }
 
   async function handleCopyHtml() {
@@ -315,7 +420,7 @@ npm start
 
     elements.btnPaste.addEventListener('click', handlePaste);
     elements.btnCopyMd.addEventListener('click', handleCopyMarkdown);
-    elements.btnClear.addEventListener('click', handleClear);
+    if (elements.btnNew) elements.btnNew.addEventListener('click', handleNewNote);
     elements.btnSample.addEventListener('click', handleSample);
     elements.btnCopyHtml.addEventListener('click', handleCopyHtml);
 
@@ -353,23 +458,24 @@ npm start
       // Check for Alt key shortcuts
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
         const key = e.key.toLowerCase();
+        const code = e.code;
 
-        // Clear: Shift+Alt+C or Shift+Alt+K
-        if (e.shiftKey && (key === 'c' || key === 'k')) {
+        // Paste as fresh draft: Alt+Shift+V or Shift+Alt+V
+        if (e.shiftKey && (key === 'v' || code === 'KeyV')) {
           e.preventDefault();
-          handleClear();
+          handlePasteFreshDraft();
           return;
         }
 
         // Copy Markdown: Alt+C (without shift)
-        if (!e.shiftKey && key === 'c') {
+        if (!e.shiftKey && (key === 'c' || code === 'KeyC')) {
           e.preventDefault();
           handleCopyMarkdown();
           return;
         }
 
         // Guide / Cheatsheet: Alt+/ or Alt+?
-        if (key === '/' || key === '?') {
+        if (key === '/' || key === '?' || code === 'Slash') {
           e.preventDefault();
           if (elements.guideModal.classList.contains('active')) {
             closeGuideModal();
@@ -382,44 +488,51 @@ npm start
         // For other keys, ignore if Shift is held down
         if (e.shiftKey) return;
 
+        // Alt+N: New note
+        if (key === 'n' || code === 'KeyN') {
+          e.preventDefault();
+          handleNewNote();
+          return;
+        }
+
         // Alt+1 or Alt+S: Split mode
-        if (key === '1' || key === 's') {
+        if (key === '1' || key === 's' || code === 'Digit1' || code === 'KeyS') {
           e.preventDefault();
           setViewMode('split');
           localStorage.setItem('markdown_viewer_mode', 'split');
           showToast('View: Split (Alt+1)');
         }
         // Alt+2 or Alt+P: Preview mode
-        else if (key === '2' || key === 'p') {
+        else if (key === '2' || key === 'p' || code === 'Digit2' || code === 'KeyP') {
           e.preventDefault();
           setViewMode('preview');
           localStorage.setItem('markdown_viewer_mode', 'preview');
           showToast('View: Preview (Alt+2)');
         }
         // Alt+3 or Alt+E: Editor mode
-        else if (key === '3' || key === 'e') {
+        else if (key === '3' || key === 'e' || code === 'Digit3' || code === 'KeyE') {
           e.preventDefault();
           setViewMode('editor');
           localStorage.setItem('markdown_viewer_mode', 'editor');
           showToast('View: Editor (Alt+3)');
         }
         // Alt+V: Paste from clipboard
-        else if (key === 'v') {
+        else if (key === 'v' || code === 'KeyV') {
           e.preventDefault();
           handlePaste();
         }
         // Alt+T: Sample template
-        else if (key === 't') {
+        else if (key === 't' || code === 'KeyT') {
           e.preventDefault();
           handleSample();
         }
         // Alt+H: Copy HTML
-        else if (key === 'h') {
+        else if (key === 'h' || code === 'KeyH') {
           e.preventDefault();
           handleCopyHtml();
         }
         // Alt+X: Toggle sync scroll
-        else if (key === 'x') {
+        else if (key === 'x' || code === 'KeyX') {
           e.preventDefault();
           toggleSyncScroll();
         }
