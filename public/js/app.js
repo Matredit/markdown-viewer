@@ -495,22 +495,22 @@ npm start
           return;
         }
 
-        // Alt+1 or Alt+S: Split mode
-        if (key === '1' || key === 's' || code === 'Digit1' || code === 'KeyS') {
+        // Alt+1: Split mode
+        if (key === '1' || code === 'Digit1') {
           e.preventDefault();
           setViewMode('split');
           localStorage.setItem('markdown_viewer_mode', 'split');
           showToast('View: Split (Alt+1)');
         }
-        // Alt+2 or Alt+P: Preview mode
-        else if (key === '2' || key === 'p' || code === 'Digit2' || code === 'KeyP') {
+        // Alt+2: Preview mode
+        else if (key === '2' || code === 'Digit2') {
           e.preventDefault();
           setViewMode('preview');
           localStorage.setItem('markdown_viewer_mode', 'preview');
           showToast('View: Preview (Alt+2)');
         }
-        // Alt+3 or Alt+E: Editor mode
-        else if (key === '3' || key === 'e' || code === 'Digit3' || code === 'KeyE') {
+        // Alt+3: Editor mode
+        else if (key === '3' || code === 'Digit3') {
           e.preventDefault();
           setViewMode('editor');
           localStorage.setItem('markdown_viewer_mode', 'editor');

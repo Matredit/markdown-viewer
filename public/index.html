@@ -21,8 +21,12 @@
     <!-- Minimalist Header -->
     <header class="app-header">
       <div class="header-left">
-        <h1 class="app-title">Markdown Viewer</h1>
-        <span class="engine-tag">Showdown</span>
+        <div class="btn-group" title="Switch view layout (Alt+1, Alt+2, Alt+3)">
+          <button class="btn-mode active" data-mode="split" title="Split view (Alt+1)">Split <span class="kbd-hint">Alt+1</span></button>
+          <button class="btn-mode" data-mode="preview" title="Preview-only view (Alt+2)">Preview <span class="kbd-hint">Alt+2</span></button>
+          <button class="btn-mode" data-mode="editor" title="Editor-only view (Alt+3)">Editor <span class="kbd-hint">Alt+3</span></button>
+        </div>
+
         <div id="active-note-indicator" class="active-note-pill" style="display:none;" title="Currently editing note">
           <span class="active-note-icon">📄</span>
           <span id="active-note-title" class="active-note-name">...</span>
@@ -32,8 +36,11 @@
       </div>
 
       <div class="header-actions">
-        <button id="btn-notes" class="btn" title="Search and manage saved notes (Ctrl+K or Alt+O)">
+        <button id="btn-notes" class="btn" title="Search and manage saved notes (Ctrl+K, Alt+K, Ctrl+O, Alt+O)">
           Notes <span class="kbd-hint">Ctrl+K</span>
+        </button>
+        <button id="btn-new" class="btn" title="Start fresh note (Alt+N)">
+          New <span class="kbd-hint">Alt+N</span>
         </button>
         <button id="btn-save" class="btn" title="Save note to browser storage (Ctrl+S)">
           Save <span class="kbd-hint">Ctrl+S</span>
@@ -47,24 +54,6 @@
         <button id="btn-copy-html" class="btn" title="Copy rendered HTML (Alt+H)">
           Copy HTML <span class="kbd-hint">Alt+H</span>
         </button>
-        <button id="btn-guide" class="btn" title="Markdown cheatsheet for Word & Docs users (Alt+/)">
-          Guide <span class="kbd-hint">Alt+/</span>
-        </button>
-        <button id="btn-sample" class="btn" title="Load sample agent markdown (Alt+T)">
-          Sample <span class="kbd-hint">Alt+T</span>
-        </button>
-        <button id="btn-new" class="btn" title="Start fresh note (Alt+N)">
-          New <span class="kbd-hint">Alt+N</span>
-        </button>
-        <button id="btn-sync" class="btn btn-sync active" title="Toggle synchronized scrolling in Split view (Alt+X)">
-          Sync <span class="kbd-hint">Alt+X</span>
-        </button>
-
-        <div class="btn-group" title="Switch view layout (Alt+1, Alt+2, Alt+3)">
-          <button class="btn-mode active" data-mode="split" title="Split view (Alt+1 or Alt+S)">Split <span class="kbd-hint">Alt+1</span></button>
-          <button class="btn-mode" data-mode="preview" title="Preview-only view (Alt+2 or Alt+P)">Preview <span class="kbd-hint">Alt+2</span></button>
-          <button class="btn-mode" data-mode="editor" title="Editor-only view (Alt+3 or Alt+E)">Editor <span class="kbd-hint">Alt+3</span></button>
-        </div>
       </div>
     </header>
 
@@ -75,6 +64,17 @@
       <section class="editor-pane" id="editor-pane">
         <div class="pane-header">
           <span class="pane-label">Markdown Input</span>
+          <div class="pane-header-actions">
+            <button id="btn-guide" class="btn" title="Markdown cheatsheet for Word & Docs users (Alt+/)">
+              Guide <span class="kbd-hint">Alt+/</span>
+            </button>
+            <button id="btn-sample" class="btn" title="Load sample agent markdown (Alt+T)">
+              Sample <span class="kbd-hint">Alt+T</span>
+            </button>
+            <button id="btn-sync" class="btn btn-sync active" title="Toggle synchronized scrolling in Split view (Alt+X)">
+              Sync <span class="kbd-hint">Alt+X</span>
+            </button>
+          </div>
         </div>
         
         <div class="editor-wrapper">

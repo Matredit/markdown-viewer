@@ -37,7 +37,7 @@
 ### Note Management
 | Shortcut | Action | Description |
 | :--- | :--- | :--- |
-| **`Ctrl + K`** or **`Alt + O`** | **Notes Palette** | Open search and note management palette |
+| **`Ctrl/Alt + K/O`** | **Notes Palette** | Open search and note management palette (`Ctrl+K`, `Alt+K`, `Ctrl+O`, `Alt+O`) |
 | **`Ctrl + S`** | **Save** | Save new note or update current note in-place |
 | **`Ctrl + Shift + S`** | **Save As** | Save current editor content as a new note (prompts title & description) |
 | **`F2`** | **Edit Note** | Edit title and description (works inside search palette or on active note) |
@@ -60,9 +60,9 @@
 ### View Modes & Layout
 | Shortcut | Action | Description |
 | :--- | :--- | :--- |
-| **`Alt + 1`** or **`Alt + S`** | **Split View** | Side-by-side editor and preview |
-| **`Alt + 2`** or **`Alt + P`** | **Preview Only** | Full-width reading view (hides editor) |
-| **`Alt + 3`** or **`Alt + E`** | **Editor Only** | Full-width editing view |
+| **`Alt + 1`** | **Split View** | Side-by-side editor and preview |
+| **`Alt + 2`** | **Preview Only** | Full-width reading view (hides editor) |
+| **`Alt + 3`** | **Editor Only** | Full-width editing view |
 | **`Alt + X`** | **Sync Scroll** | Toggle synchronized scrolling between editor and preview |
 
 ---

@@ -699,8 +699,11 @@
           return;
         }
 
-        // Ctrl+K / Cmd+K or Alt+O: Search Palette
-        if ((isCtrlOrMeta && key === 'k') || (e.altKey && !isCtrlOrMeta && key === 'o')) {
+        // Notes Palette: Ctrl+K, Alt+K, Ctrl+O, Alt+O (4 binds)
+        const isNotesKey = key === 'k' || key === 'o' || e.code === 'KeyK' || e.code === 'KeyO';
+        const isNotesMod = (isCtrlOrMeta && !e.altKey) || (e.altKey && !isCtrlOrMeta);
+        if (isNotesMod && isNotesKey && !e.shiftKey) {
+          if (isSaveOpen || isEditOpen) return;
           e.preventDefault();
           if (isNotesOpen) {
             this.closeNotesModal();
