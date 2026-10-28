@@ -1085,7 +1085,7 @@
         // Optional Content Match Snippet
         let snippetHtml = '';
         if (item.snippetHtml) {
-          snippetHtml = `<div class="note-snippet"><span class="snippet-icon">🔍</span> "${item.snippetHtml}"</div>`;
+          snippetHtml = `<div class="note-snippet"><span class="snippet-icon">🔍</span> ${item.snippetHtml}</div>`;
         }
 
         el.innerHTML = `
