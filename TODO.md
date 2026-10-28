@@ -1,8 +1,5 @@
-- currently when pasted with a note opened, it doens't add the "edited" mark on it. the whole thing with "clear" button on the top, "New Note" in the search modal is sus. we should make it more clear.
+- tell user if the note is too large (in notes modal where it shows when opened, updated, created, lines size. when size is > some point make size text yellow, then red saying briefly that it's large or too large)
 
-- import exported notes (for new device). do we need .json for that in there right now or just files is fine for now?
-- search by more than just name, it should store metadata like creation date, last modified.
-  maybe add description to file. then search by name, then by desc, then by content (if possible)
 - rewrite in vite+ts
 - swap showdown for something else
   opencode -s ses_e8549fffbffe5Mm7QBVyarIXO1

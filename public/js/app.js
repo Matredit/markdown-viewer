@@ -156,11 +156,54 @@ npm start
   };
 
   let debounceTimer = null;
+  let storageDebounceTimer = null;
+  let pendingStorageContent = null;
   let renderCounter = 0;
   let currentSvg = '';
   let zoomScale = 1;
   let isPanning = false;
   let startX = 0, startY = 0, translateX = 0, translateY = 0;
+
+  // LocalStorage debounced persistence (500ms debounce + flush on beforeunload/pagehide)
+  function scheduleSaveContent(text) {
+    pendingStorageContent = text;
+    clearTimeout(storageDebounceTimer);
+    storageDebounceTimer = setTimeout(() => {
+      flushSaveContent();
+    }, 500);
+  }
+
+  function flushSaveContent() {
+    if (storageDebounceTimer) {
+      clearTimeout(storageDebounceTimer);
+      storageDebounceTimer = null;
+    }
+    if (pendingStorageContent !== null) {
+      try {
+        localStorage.setItem('markdown_viewer_content', pendingStorageContent);
+      } catch (e) {
+        console.warn('Failed to save to localStorage:', e);
+      }
+      pendingStorageContent = null;
+    }
+  }
+
+  function saveContentImmediately(text) {
+    if (storageDebounceTimer) {
+      clearTimeout(storageDebounceTimer);
+      storageDebounceTimer = null;
+    }
+    pendingStorageContent = null;
+    try {
+      if (text === null || text === undefined) {
+        localStorage.removeItem('markdown_viewer_content');
+      } else {
+        localStorage.setItem('markdown_viewer_content', text);
+      }
+    } catch (e) {
+      console.warn('Failed to save to localStorage:', e);
+    }
+  }
 
   // Sync scroll state (Option 2: Section & Heading Anchors)
   let syncScrollEnabled = localStorage.getItem('markdown_viewer_sync_scroll') !== 'false';
@@ -203,9 +246,10 @@ npm start
       setContent: (val) => {
         elements.textarea.value = val;
         updateStats(val);
-        localStorage.setItem('markdown_viewer_content', val);
+        saveContentImmediately(val);
         renderMarkdown(val);
       },
+      flush: () => flushSaveContent(),
       showToast: (msg, duration, onUndo) => showToast(msg, duration, onUndo),
       render: (val) => renderMarkdown(val),
       startNewNote: () => handleNewNote(),
@@ -237,7 +281,7 @@ npm start
 
       elements.textarea.value = text;
       updateStats(text);
-      localStorage.setItem('markdown_viewer_content', text);
+      saveContentImmediately(text);
       renderMarkdown(text);
 
       if (prevActiveId && window.NotesManager) {
@@ -245,7 +289,7 @@ npm start
         showToast(`Pasted into "${prevActiveTitle}"`, null, async () => {
           elements.textarea.value = prevContent;
           updateStats(prevContent);
-          localStorage.setItem('markdown_viewer_content', prevContent);
+          saveContentImmediately(prevContent);
           renderMarkdown(prevContent);
           const note = await window.NotesManager.db.get(prevActiveId);
           if (note) {
@@ -259,7 +303,7 @@ npm start
           showToast('Pasted from clipboard', null, () => {
             elements.textarea.value = prevContent;
             updateStats(prevContent);
-            localStorage.setItem('markdown_viewer_content', prevContent);
+            saveContentImmediately(prevContent);
             renderMarkdown(prevContent);
             showToast('Restored content');
           });
@@ -290,13 +334,13 @@ npm start
 
       elements.textarea.value = text;
       updateStats(text);
-      localStorage.setItem('markdown_viewer_content', text);
+      saveContentImmediately(text);
       renderMarkdown(text);
 
       showToast('Pasted as fresh draft', null, async () => {
         elements.textarea.value = prevContent;
         updateStats(prevContent);
-        localStorage.setItem('markdown_viewer_content', prevContent);
+        saveContentImmediately(prevContent);
         renderMarkdown(prevContent);
         if (prevActiveId && window.NotesManager) {
           const note = await window.NotesManager.db.get(prevActiveId);
@@ -327,13 +371,13 @@ npm start
     }
     elements.textarea.value = '';
     updateStats('');
-    localStorage.removeItem('markdown_viewer_content');
+    saveContentImmediately(null);
     renderMarkdown('');
 
     showToast('Started new note', null, async () => {
       elements.textarea.value = prevContent;
       updateStats(prevContent);
-      localStorage.setItem('markdown_viewer_content', prevContent);
+      saveContentImmediately(prevContent);
       renderMarkdown(prevContent);
       if (prevActiveId && window.NotesManager) {
         const note = await window.NotesManager.db.get(prevActiveId);
@@ -353,7 +397,7 @@ npm start
 
     elements.textarea.value = DEFAULT_SAMPLE;
     updateStats(DEFAULT_SAMPLE);
-    localStorage.setItem('markdown_viewer_content', DEFAULT_SAMPLE);
+    saveContentImmediately(DEFAULT_SAMPLE);
     renderMarkdown(DEFAULT_SAMPLE);
 
     if (window.NotesManager && prevActiveId) {
@@ -363,7 +407,7 @@ npm start
     showToast('Loaded sample', null, async () => {
       elements.textarea.value = prevContent;
       updateStats(prevContent);
-      localStorage.setItem('markdown_viewer_content', prevContent);
+      saveContentImmediately(prevContent);
       renderMarkdown(prevContent);
       if (prevActiveId && window.NotesManager) {
         const note = await window.NotesManager.db.get(prevActiveId);
@@ -403,11 +447,11 @@ npm start
 
   // Bind Events
   function bindEvents() {
-    // Live typing with debounce
+    // Live typing with debounce (100ms render, 500ms localStorage save)
     elements.textarea.addEventListener('input', () => {
       const text = elements.textarea.value;
       updateStats(text);
-      localStorage.setItem('markdown_viewer_content', text);
+      scheduleSaveContent(text);
       if (window.NotesManager) {
         window.NotesManager.markDirty();
       }
@@ -416,6 +460,14 @@ npm start
       debounceTimer = setTimeout(() => {
         renderMarkdown(text);
       }, 100);
+    });
+
+    // Flush pending storage writes when closing/refreshing tab
+    window.addEventListener('beforeunload', () => {
+      flushSaveContent();
+    });
+    window.addEventListener('pagehide', () => {
+      flushSaveContent();
     });
 
     elements.btnPaste.addEventListener('click', handlePaste);
@@ -1221,7 +1273,7 @@ npm start
         reader.onload = (evt) => {
           elements.textarea.value = evt.target.result;
           updateStats(evt.target.result);
-          localStorage.setItem('markdown_viewer_content', evt.target.result);
+          saveContentImmediately(evt.target.result);
           renderMarkdown(evt.target.result);
           showToast(`Opened ${file.name}`);
         };

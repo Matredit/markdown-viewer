@@ -13,6 +13,7 @@
 
 ### Note Management & Storage
 - **Persistent IndexedDB Storage**: Notes are stored directly in your browser's IndexedDB—never vanishing across restarts or reboots.
+- **Debounced Draft Persistence**: Active editor text is preserved in `localStorage` with a 500ms debounce during typing and immediately flushed on tab close (`beforeunload`), page navigation (`pagehide`), or manual save (<kbd>Ctrl + S</kbd>).
 - **Command Palette & Search (`Ctrl + K` / `Alt + O`)**: Fast keyboard-driven modal to search, open, edit, and delete notes without touching your mouse.
 - **Dual-Path Content & Title Search**:
   - **Path A (Literal / Full-Sentence)**: Matches exact phrases, multi-word sentences across hard-wrapped newlines, tables, and raw code syntax (`npm start`, `| Key | Type |`).

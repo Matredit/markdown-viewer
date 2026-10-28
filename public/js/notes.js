@@ -790,6 +790,9 @@
     // Save Note Flow
     // =========================================================================
     async handleSaveAction() {
+      if (window.MarkdownViewer && window.MarkdownViewer.flush) {
+        window.MarkdownViewer.flush();
+      }
       const content = window.MarkdownViewer ? window.MarkdownViewer.getContent() : '';
       if (!content || !content.trim()) {
         if (window.MarkdownViewer && window.MarkdownViewer.showToast) {
