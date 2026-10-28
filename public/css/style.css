@@ -1220,6 +1220,16 @@ html, body {
   margin-top: 0.15rem;
 }
 
+.note-size-warn {
+  color: #eab308;
+  font-weight: 500;
+}
+
+.note-size-danger {
+  color: #ef4444;
+  font-weight: 600;
+}
+
 .note-actions {
   display: flex;
   align-items: center;

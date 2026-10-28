@@ -25,6 +25,7 @@
   - Indicates the currently active note in the header.
   - Displays a yellow bullet dot (`•`) when there are unsaved changes.
   - Quick detach button (`✕`) unlinks the note into an independent scratchpad draft without losing text.
+- **Size Health Warnings**: Notes modal displays exact byte/KB/MB sizes; highlights notes **$\ge$ 100 KB in yellow (`Large`)** and **$\ge$ 500 KB in red (`Too large`)** to flag potential browser overhead.
 - **Full Backup & Restore**:
   - **Export All (`.zip`)**: Generates a standard binary ZIP archive containing all individual `.md` files alongside a complete `markdown-viewer-backup.json` metadata file.
   - **Import**: Restore backup files (`.json`) or batch-import multiple markdown files (`.md`) via toolbar buttons or drag-and-drop.

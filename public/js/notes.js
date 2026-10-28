@@ -276,13 +276,24 @@
     const lines = note.content ? note.content.split('\n').length : 0;
     const bytes = new Blob([note.content || '']).size;
     let sizeStr = `${bytes} B`;
-    if (bytes >= 1024) sizeStr = `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes >= 1024 * 1024) {
+      sizeStr = `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    } else if (bytes >= 1024) {
+      sizeStr = `${(bytes / 1024).toFixed(1)} KB`;
+    }
 
     const openedStr = `Opened ${formatTimeAgo(note.lastOpenedAt || note.updatedAt)}`;
     const updatedStr = `Updated ${formatTimeAgo(note.updatedAt)}`;
     const createdStr = `Created ${formatDateSimple(note.createdAt)}`;
 
-    return `${openedStr} • ${updatedStr} • ${createdStr} • ${lines} lines • ${sizeStr}`;
+    let sizeHtml = sizeStr;
+    if (bytes >= 500 * 1024) {
+      sizeHtml = `<span class="note-size-danger" title="Very large note (> 500 KB); editing and rendering may be slow">${sizeStr} (Too large)</span>`;
+    } else if (bytes >= 100 * 1024) {
+      sizeHtml = `<span class="note-size-warn" title="Large note (> 100 KB)">${sizeStr} (Large)</span>`;
+    }
+
+    return `${openedStr} • ${updatedStr} • ${createdStr} • ${lines} lines • ${sizeHtml}`;
   }
 
   function sanitizeSlug(str) {
