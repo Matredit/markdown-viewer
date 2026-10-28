@@ -69,6 +69,7 @@
 | **`Alt + 2`** | **Preview Only** | Full-width reading view (hides editor) |
 | **`Alt + 3`** | **Editor Only** | Full-width editing view |
 | **`Alt + X`** | **Sync Scroll** | Toggle synchronized scrolling between editor and preview |
+| **`Alt + B`** | **Soft Breaks** | Toggle soft line breaks (`<br>` on single newlines) vs. strict CommonMark |
 
 ---
 

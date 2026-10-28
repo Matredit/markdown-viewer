@@ -269,9 +269,7 @@ npm start
     setupHotkeys();
     setupSyncScroll();
 
-    if (elements.btnBreaks) {
-      elements.btnBreaks.classList.toggle('active', simpleLineBreaksEnabled);
-    }
+    updateBreaksButtonUI();
 
     if (new URLSearchParams(window.location.search).get('guide') === 'true') {
       openGuideModal();
@@ -490,16 +488,7 @@ npm start
     elements.btnCopyHtml.addEventListener('click', handleCopyHtml);
 
     if (elements.btnBreaks) {
-      elements.btnBreaks.addEventListener('click', () => {
-        simpleLineBreaksEnabled = !simpleLineBreaksEnabled;
-        localStorage.setItem('markdown_viewer_breaks', simpleLineBreaksEnabled);
-        if (converter) {
-          converter.setOption('simpleLineBreaks', simpleLineBreaksEnabled);
-        }
-        elements.btnBreaks.classList.toggle('active', simpleLineBreaksEnabled);
-        showToast(simpleLineBreaksEnabled ? 'Line breaks: Soft (enabled)' : 'Line breaks: Strict (CommonMark)');
-        renderMarkdown(elements.textarea.value);
-      });
+      elements.btnBreaks.addEventListener('click', toggleSimpleLineBreaks);
     }
 
     // Image click to zoom
@@ -620,6 +609,11 @@ npm start
         else if (key === 'x' || code === 'KeyX') {
           e.preventDefault();
           toggleSyncScroll();
+        }
+        // Alt+B: Toggle soft line breaks
+        else if (key === 'b' || code === 'KeyB') {
+          e.preventDefault();
+          toggleSimpleLineBreaks();
         }
       }
     });
@@ -1402,6 +1396,25 @@ npm start
       elements.btnSync.classList.remove('active');
       elements.btnSync.title = 'Synchronized scrolling is OFF (Alt+X)';
     }
+  }
+
+  function toggleSimpleLineBreaks() {
+    simpleLineBreaksEnabled = !simpleLineBreaksEnabled;
+    localStorage.setItem('markdown_viewer_breaks', simpleLineBreaksEnabled);
+    if (converter) {
+      converter.setOption('simpleLineBreaks', simpleLineBreaksEnabled);
+    }
+    updateBreaksButtonUI();
+    showToast(simpleLineBreaksEnabled ? 'Line breaks: Soft (Alt+B)' : 'Line breaks: Strict (Alt+B)');
+    renderMarkdown(elements.textarea.value);
+  }
+
+  function updateBreaksButtonUI() {
+    if (!elements.btnBreaks) return;
+    elements.btnBreaks.classList.toggle('active', simpleLineBreaksEnabled);
+    elements.btnBreaks.title = simpleLineBreaksEnabled
+      ? 'Soft line breaks enabled (convert single newlines to <br>) (Alt+B)'
+      : 'Strict line breaks enabled (CommonMark standard) (Alt+B)';
   }
 
   // Drag and drop
