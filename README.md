@@ -5,9 +5,12 @@
 
 ### Markdown & Diagram Rendering
 - **Showdown Engine**: GitHub Flavored Markdown (tables, task lists, strikethrough, autolinks, code blocks).
-- **Syntax Highlighting**: Code syntax styling powered by Prism (Tomorrow theme).
+- **Soft Line Breaks Toggle (`Breaks`)**: Defaults to soft line breaks (`<br>` on single newlines) to naturally format AI agent lists and logs, with a one-click toggle button to switch back to strict CommonMark mode.
+- **LaTeX Math Formulas (KaTeX)**: Full math rendering for both display blocks (`$$...$$`) and inline expressions (`$...$`) without markdown syntax interference.
+- **Enhanced Code Blocks**: Each snippet features a language badge (`TSX`, `RUST`, `PYTHON`, `SQL`, etc.), a 1-click **Copy** button with confirmation feedback, and a **Wrap** button to eliminate horizontal scrolling.
+- **Expanded Syntax Highlighting**: Powered by Prism with dark Tomorrow styling, preloaded with JSX, TSX, Rust, Go, Python, Bash, C, C++, C#, Java, Kotlin, PHP, Ruby, Swift, SQL, Docker, TOML, YAML, JSON, Diff, plus Prism Autoloader for on-demand language resolution.
 - **Mermaid Support**: Renders flowcharts, sequence diagrams, state diagrams, class diagrams, entity-relationship diagrams, and XY charts.
-- **Diagram Inspector**: Pan & zoom modal for complex Mermaid diagrams with one-click SVG export.
+- **Pan & Zoom Inspector**: Inspect and pan/zoom complex Mermaid diagrams and embedded Markdown images with mouse drag, wheel zoom, and SVG export.
 - **Synchronized Scrolling (`Alt + X`)**: Proportional bidirectional scrolling locked across section and heading anchors in Split view.
 - **Markdown Cheatsheet & Guide (`Alt + /`)**: Built-in guide covering non-intuitive formatting rules (spaces, line breaks, table delimiters) specifically tailored for Word & Google Docs users.
 

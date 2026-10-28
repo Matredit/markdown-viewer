@@ -64,6 +64,14 @@ npm start
 \`\`\`
 `;
 
+  // Configure Prism Autoloader path
+  if (typeof window.Prism !== 'undefined' && window.Prism.plugins && window.Prism.plugins.autoloader) {
+    window.Prism.plugins.autoloader.languages_path = 'vendor/prism-components/';
+  }
+
+  // Soft line breaks state (persisted in localStorage, defaults to true)
+  let simpleLineBreaksEnabled = localStorage.getItem('markdown_viewer_breaks') !== 'false';
+
   // Initialize Showdown Converter
   let converter = null;
   if (typeof window.showdown !== 'undefined') {
@@ -75,7 +83,7 @@ npm start
       simplifiedAutoLink: true,
       openLinksInNewWindow: true,
       emoji: true,
-      simpleLineBreaks: false,
+      simpleLineBreaks: simpleLineBreaksEnabled,
       ghCompatibleHeaderId: true,
       parseImgDimensions: true,
       smoothLiveStreaming: true
@@ -135,6 +143,7 @@ npm start
     btnNew: document.getElementById('btn-new'),
     btnSync: document.getElementById('btn-sync'),
     btnSample: document.getElementById('btn-sample'),
+    btnBreaks: document.getElementById('btn-breaks'),
     modeBtns: document.querySelectorAll('.btn-mode'),
     statLines: document.getElementById('stat-lines'),
     statWords: document.getElementById('stat-words'),
@@ -259,6 +268,10 @@ npm start
     bindEvents();
     setupHotkeys();
     setupSyncScroll();
+
+    if (elements.btnBreaks) {
+      elements.btnBreaks.classList.toggle('active', simpleLineBreaksEnabled);
+    }
 
     if (new URLSearchParams(window.location.search).get('guide') === 'true') {
       openGuideModal();
@@ -422,7 +435,7 @@ npm start
 
   async function handleCopyHtml() {
     if (!converter) return;
-    const html = converter.makeHtml(elements.textarea.value);
+    const html = convertMarkdownToHtml(elements.textarea.value);
     try {
       await navigator.clipboard.writeText(html);
       showToast('Copied HTML to clipboard');
@@ -475,6 +488,26 @@ npm start
     if (elements.btnNew) elements.btnNew.addEventListener('click', handleNewNote);
     elements.btnSample.addEventListener('click', handleSample);
     elements.btnCopyHtml.addEventListener('click', handleCopyHtml);
+
+    if (elements.btnBreaks) {
+      elements.btnBreaks.addEventListener('click', () => {
+        simpleLineBreaksEnabled = !simpleLineBreaksEnabled;
+        localStorage.setItem('markdown_viewer_breaks', simpleLineBreaksEnabled);
+        if (converter) {
+          converter.setOption('simpleLineBreaks', simpleLineBreaksEnabled);
+        }
+        elements.btnBreaks.classList.toggle('active', simpleLineBreaksEnabled);
+        showToast(simpleLineBreaksEnabled ? 'Line breaks: Soft (enabled)' : 'Line breaks: Strict (CommonMark)');
+        renderMarkdown(elements.textarea.value);
+      });
+    }
+
+    // Image click to zoom
+    elements.preview.addEventListener('click', (e) => {
+      if (e.target.tagName === 'IMG' && !e.target.closest('.modal-content') && !e.target.closest('.mermaid-wrapper')) {
+        openZoomModal(e.target.src, true);
+      }
+    });
 
     // View mode buttons
     elements.modeBtns.forEach(btn => {
@@ -611,7 +644,126 @@ npm start
     }
   }
 
-  // Render Markdown using Showdown + Mermaid + Prism
+  // Helper to convert markdown to HTML with LaTeX math protection & KaTeX rendering
+  function convertMarkdownToHtml(markdown) {
+    if (!converter) return '';
+    if (!markdown || !markdown.trim()) return '';
+
+    let textToParse = markdown;
+    const mathItems = [];
+
+    // 1. Protect block math $$...$$
+    textToParse = textToParse.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+      const idx = mathItems.length;
+      mathItems.push({ formula: formula.trim(), display: true });
+      return `<div data-katex-block="${idx}"></div>`;
+    });
+
+    // 2. Protect inline math $...$
+    textToParse = textToParse.replace(/(^|[^\\])\$([^\s$](?:[^$]*?[^\s$])?)\$/g, (match, prefix, formula) => {
+      const idx = mathItems.length;
+      mathItems.push({ formula: formula.trim(), display: false });
+      return `${prefix}<span data-katex-inline="${idx}"></span>`;
+    });
+
+    let html = converter.makeHtml(textToParse);
+
+    // 3. Render math with KaTeX if available
+    if (typeof window.katex !== 'undefined') {
+      html = html.replace(/<div data-katex-block="(\d+)"><\/div>/g, (m, idx) => {
+        const item = mathItems[Number(idx)];
+        if (!item) return m;
+        try {
+          return window.katex.renderToString(item.formula, { displayMode: true, throwOnError: false });
+        } catch (e) {
+          return `<div class="katex-error">$$${item.formula}$$</div>`;
+        }
+      });
+
+      html = html.replace(/<span data-katex-inline="(\d+)"><\/span>/g, (m, idx) => {
+        const item = mathItems[Number(idx)];
+        if (!item) return m;
+        try {
+          return window.katex.renderToString(item.formula, { displayMode: false, throwOnError: false });
+        } catch (e) {
+          return `<span class="katex-error">$${item.formula}$</span>`;
+        }
+      });
+    } else {
+      html = html.replace(/<div data-katex-block="(\d+)"><\/div>/g, (m, idx) => `$$${mathItems[Number(idx)]?.formula || ''}$$`);
+      html = html.replace(/<span data-katex-inline="(\d+)"><\/span>/g, (m, idx) => `$${mathItems[Number(idx)]?.formula || ''}$`);
+    }
+
+    return html;
+  }
+
+  // Process Code Blocks (Toolbar, Language Badge, Copy & Word Wrap)
+  function processCodeBlocks(container) {
+    const codeElements = Array.from(container.querySelectorAll('pre > code'));
+
+    for (const codeEl of codeElements) {
+      if (codeEl.classList.contains('mermaid') || codeEl.classList.contains('language-mermaid')) {
+        continue;
+      }
+
+      const preEl = codeEl.tagName.toLowerCase() === 'pre' ? codeEl : codeEl.closest('pre');
+      if (!preEl || preEl.dataset.enhanced === 'true') continue;
+      preEl.dataset.enhanced = 'true';
+
+      // Detect language from class (e.g. language-tsx -> TSX)
+      let lang = 'CODE';
+      const langMatch = Array.from(codeEl.classList).find(c => c.startsWith('language-') || c.startsWith('lang-'));
+      if (langMatch) {
+        lang = langMatch.replace(/^language-|^lang-/, '').toUpperCase();
+      } else if (codeEl.className) {
+        const first = codeEl.className.trim().split(/\s+/)[0];
+        if (first && !first.startsWith('code-')) lang = first.toUpperCase();
+      }
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-block-wrapper';
+
+      const header = document.createElement('div');
+      header.className = 'code-block-header';
+      header.innerHTML = `
+        <span class="code-lang-label">${escapeHtml(lang)}</span>
+        <div class="code-actions">
+          <button type="button" class="btn-code-action btn-code-wrap" title="Toggle word wrap (no horizontal scroll)">Wrap</button>
+          <button type="button" class="btn-code-action btn-code-copy" title="Copy code to clipboard">Copy</button>
+        </div>
+      `;
+
+      preEl.parentNode.insertBefore(wrapper, preEl);
+      wrapper.appendChild(header);
+      wrapper.appendChild(preEl);
+
+      const btnWrap = header.querySelector('.btn-code-wrap');
+      btnWrap.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isWrapped = wrapper.classList.toggle('word-wrap');
+        btnWrap.classList.toggle('active', isWrapped);
+        buildSyncAnchors();
+      });
+
+      const btnCopy = header.querySelector('.btn-code-copy');
+      btnCopy.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          await navigator.clipboard.writeText(codeEl.textContent);
+          btnCopy.textContent = '✓ Copied';
+          btnCopy.classList.add('copied');
+          setTimeout(() => {
+            btnCopy.textContent = 'Copy';
+            btnCopy.classList.remove('copied');
+          }, 1500);
+        } catch (err) {
+          showToast('Failed to copy code');
+        }
+      });
+    }
+  }
+
+  // Render Markdown using Showdown + KaTeX + Prism + Mermaid
   async function renderMarkdown(markdown) {
     if (!converter) {
       elements.preview.innerHTML = '<p style="color:#ef4444;">Showdown library not loaded.</p>';
@@ -630,8 +782,8 @@ npm start
       return;
     }
 
-    // 1. Convert markdown to HTML via Showdown
-    const html = converter.makeHtml(markdown);
+    // 1. Convert markdown to HTML via Showdown with KaTeX math rendering
+    const html = convertMarkdownToHtml(markdown);
     elements.preview.innerHTML = html;
 
     // 2. Syntax highlighting with Prism (exclude mermaid)
@@ -645,10 +797,13 @@ npm start
       });
     }
 
-    // 3. Process Mermaid Diagrams
+    // 3. Process Code Blocks (Toolbar, Language Badge, Copy & Word Wrap)
+    processCodeBlocks(elements.preview);
+
+    // 4. Process Mermaid Diagrams
     await processMermaidDiagrams(elements.preview);
 
-    // 4. Update sync scroll anchors
+    // 5. Update sync scroll anchors
     buildSyncAnchors();
   }
 
@@ -893,35 +1048,42 @@ npm start
     }, { passive: false });
   }
 
-  function openZoomModal(svgContent) {
-    currentSvg = svgContent;
-    elements.modalCanvas.innerHTML = svgContent;
+  function openZoomModal(content, isImage = false) {
+    if (isImage) {
+      currentSvg = '';
+      if (elements.btnDownloadSvg) elements.btnDownloadSvg.style.display = 'none';
+      elements.modalCanvas.innerHTML = `<img src="${content}" alt="Image preview" style="max-width:none; max-height:none; user-select:none; pointer-events:none; border-radius:4px; box-shadow: 0 10px 40px rgba(0,0,0,0.6);" />`;
+    } else {
+      if (elements.btnDownloadSvg) elements.btnDownloadSvg.style.display = '';
+      currentSvg = content;
+      elements.modalCanvas.innerHTML = content;
 
-    const svgEl = elements.modalCanvas.querySelector('svg');
-    if (svgEl) {
-      // Clear restrictive inline max-width so zoom modal can control sizing
-      svgEl.style.maxWidth = '';
-      svgEl.style.minWidth = '';
+      const svgEl = elements.modalCanvas.querySelector('svg');
+      if (svgEl) {
+        // Clear restrictive inline max-width so zoom modal can control sizing
+        svgEl.style.maxWidth = '';
+        svgEl.style.minWidth = '';
 
-      // Ensure explicit width & height attributes from viewBox so flexbox calculates intrinsic dimensions
-      let vbWidth = 0;
-      let vbHeight = 0;
-      if (svgEl.viewBox && svgEl.viewBox.baseVal && svgEl.viewBox.baseVal.width > 0) {
-        vbWidth = svgEl.viewBox.baseVal.width;
-        vbHeight = svgEl.viewBox.baseVal.height;
-      } else {
-        const vb = svgEl.getAttribute('viewBox');
-        if (vb) {
-          const parts = vb.trim().split(/[\s,]+/).map(Number);
-          if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
-            vbWidth = parts[2];
-            vbHeight = parts[3];
+        // Ensure explicit width & height attributes from viewBox so flexbox calculates intrinsic dimensions
+        let vbWidth = 0;
+        let vbHeight = 0;
+        if (svgEl.viewBox && svgEl.viewBox.baseVal && svgEl.viewBox.baseVal.width > 0) {
+          vbWidth = svgEl.viewBox.baseVal.width;
+          vbHeight = svgEl.viewBox.baseVal.height;
+        } else {
+          const vb = svgEl.getAttribute('viewBox');
+          if (vb) {
+            const parts = vb.trim().split(/[\s,]+/).map(Number);
+            if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+              vbWidth = parts[2];
+              vbHeight = parts[3];
+            }
           }
         }
-      }
-      if (vbWidth > 0 && vbHeight > 0) {
-        svgEl.setAttribute('width', vbWidth);
-        svgEl.setAttribute('height', vbHeight);
+        if (vbWidth > 0 && vbHeight > 0) {
+          svgEl.setAttribute('width', vbWidth);
+          svgEl.setAttribute('height', vbHeight);
+        }
       }
     }
 
@@ -938,6 +1100,7 @@ npm start
     elements.zoomModal.classList.remove('active');
     document.body.style.overflow = '';
     elements.modalCanvas.innerHTML = '';
+    if (elements.btnDownloadSvg) elements.btnDownloadSvg.style.display = '';
   }
 
   // Guide Modal Controls

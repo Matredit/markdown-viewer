@@ -172,15 +172,18 @@ html, body {
   color: #000000;
 }
 
-.btn-sync {
+.btn-sync,
+.btn-breaks {
   opacity: 0.7;
 }
 
-.btn-sync:hover {
+.btn-sync:hover,
+.btn-breaks:hover {
   opacity: 1;
 }
 
-.btn-sync.active {
+.btn-sync.active,
+.btn-breaks.active {
   opacity: 1;
   background: var(--bg-surface-raised);
   color: var(--text-primary);
@@ -1429,4 +1432,110 @@ html, body {
   background: #1d4ed8;
   border-color: #60a5fa;
   color: #ffffff;
+}
+
+/* ==========================================================================
+   Code Block Enhancement (Toolbar, Language Badge, Copy & Word Wrap)
+   ========================================================================== */
+.code-block-wrapper {
+  position: relative;
+  margin: 1rem 0;
+  border-radius: 6px;
+  border: 1px solid #282828;
+  background: #141414;
+  overflow: hidden;
+}
+
+.code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0.65rem;
+  background: #1a1a1a;
+  border-bottom: 1px solid #242424;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.72rem;
+  user-select: none;
+}
+
+.code-lang-label {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: #888888;
+  font-size: 0.68rem;
+}
+
+.code-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-code-action {
+  background: #222222;
+  border: 1px solid #383838;
+  color: #bbbbbb;
+  font-size: 0.68rem;
+  font-family: inherit;
+  padding: 0.12rem 0.45rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  line-height: 1.2;
+}
+
+.btn-code-action:hover {
+  background: #2e2e2e;
+  border-color: #4a4a4a;
+  color: #ffffff;
+}
+
+.btn-code-action.active {
+  background: #333333;
+  border-color: #666666;
+  color: #ffffff;
+}
+
+.btn-code-copy.copied {
+  background: #166534;
+  border-color: #22c55e;
+  color: #ffffff;
+}
+
+.code-block-wrapper pre {
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0.85rem !important;
+}
+
+.code-block-wrapper.word-wrap pre,
+.code-block-wrapper.word-wrap pre code {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* ==========================================================================
+   Image Click-to-Zoom & KaTeX Dark Layout
+   ========================================================================== */
+.markdown-body img,
+.preview-content img {
+  cursor: zoom-in;
+  transition: opacity 0.15s ease;
+  border-radius: 4px;
+}
+
+.markdown-body img:hover,
+.preview-content img:hover {
+  opacity: 0.92;
+}
+
+.katex-display {
+  margin: 1rem 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 0.35rem 0 !important;
 }

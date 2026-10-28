@@ -12,6 +12,7 @@
   <link rel="apple-touch-icon" sizes="256x256" href="apple-touch-icon.png">
 
   <link rel="stylesheet" href="vendor/prism-tomorrow.css">
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
   <link rel="stylesheet" href="css/markdown.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -70,6 +71,9 @@
             </button>
             <button id="btn-sample" class="btn" title="Load sample agent markdown (Alt+T)">
               Sample <span class="kbd-hint">Alt+T</span>
+            </button>
+            <button id="btn-breaks" class="btn btn-breaks active" title="Toggle soft line breaks (convert single newlines to <br>)">
+              Breaks
             </button>
             <button id="btn-sync" class="btn btn-sync active" title="Toggle synchronized scrolling in Split view (Alt+X)">
               Sync <span class="kbd-hint">Alt+X</span>
@@ -585,14 +589,23 @@ sequenceDiagram
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Vendor Libraries -->
+  <script src="vendor/katex/katex.min.js"></script>
   <script src="vendor/showdown.min.js"></script>
   <script src="vendor/mermaid.min.js"></script>
   <script src="vendor/prism.min.js"></script>
+  <script src="vendor/prism-plugins/prism-autoloader.min.js"></script>
   <script src="vendor/prism-components/prism-python.min.js"></script>
   <script src="vendor/prism-components/prism-bash.min.js"></script>
   <script src="vendor/prism-components/prism-json.min.js"></script>
   <script src="vendor/prism-components/prism-typescript.min.js"></script>
+  <script src="vendor/prism-components/prism-jsx.min.js"></script>
+  <script src="vendor/prism-components/prism-tsx.min.js"></script>
   <script src="vendor/prism-components/prism-yaml.min.js"></script>
+  <script src="vendor/prism-components/prism-rust.min.js"></script>
+  <script src="vendor/prism-components/prism-go.min.js"></script>
+  <script src="vendor/prism-components/prism-c.min.js"></script>
+  <script src="vendor/prism-components/prism-cpp.min.js"></script>
+  <script src="vendor/prism-components/prism-sql.min.js"></script>
 
   <!-- Application Logic & Modular Storage -->
   <script src="js/notes-search.js"></script>

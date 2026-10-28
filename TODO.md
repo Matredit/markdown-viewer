@@ -1,4 +1,7 @@
-- tell user if the note is too large (in notes modal where it shows when opened, updated, created, lines size. when size is > some point make size text yellow, then red saying briefly that it's large or too large)
+- how does it search through note description? I wanted it to be to be able to find stuff easily, does it work similarly to how we search by content? I was thinking to use it more like set of keyworkds (I'll write that myself, they'll be about 300 characters on average). Should we change how search by description works? should it be more like title search or will it be too much?
+- UI consistency: 
+  - image Click-to-Zoom has "Diagram View" label. we shouldn't make that conditional, we should just make it generic or remove completely.
+  - in Pewview it says "Paste text from your agent on the left..." but we have somethin on the left only in Split view. again, just make it generic.
 
 - rewrite in vite+ts
 - swap showdown for something else
