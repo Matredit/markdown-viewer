@@ -1089,10 +1089,11 @@
 
         const metaStr = formatNoteMeta(note);
 
-        // Optional Description Row
+        // Optional Description Row (Curated Keywords)
         let descHtml = '';
         if (note.description) {
-          descHtml = `<div class="note-description">${escapeHtml(note.description)}</div>`;
+          const content = item.descHtml || escapeHtml(note.description);
+          descHtml = `<div class="note-description">${content}</div>`;
         }
 
         // Optional Content Match Snippet

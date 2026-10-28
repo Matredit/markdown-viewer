@@ -154,6 +154,73 @@
     return escapeHtml(text).replace(regex, '<mark class="search-match">$1</mark>');
   }
 
+  // Highlight description text with continuous phrase and word/prefix match support
+  function highlightDescription(text, query, queryTokens) {
+    if (!text) return '';
+    const q = (query || '').trim();
+    if (!q) return escapeHtml(text);
+
+    const lowerText = text.toLowerCase();
+    const ranges = [];
+
+    // 1. Exact full query phrase
+    const qLower = q.toLowerCase();
+    if (qLower.length > 1) {
+      let idx = lowerText.indexOf(qLower);
+      while (idx !== -1) {
+        ranges.push({ start: idx, end: idx + qLower.length });
+        idx = lowerText.indexOf(qLower, idx + qLower.length);
+      }
+    }
+
+    // 2. Query tokens & prefixes
+    const tokens = queryTokens && queryTokens.length > 0 ? queryTokens : cleanTokens(q);
+    tokens.forEach(token => {
+      const tLower = token.toLowerCase();
+      if (!tLower) return;
+      let idx = lowerText.indexOf(tLower);
+      while (idx !== -1) {
+        ranges.push({ start: idx, end: idx + tLower.length });
+        idx = lowerText.indexOf(tLower, idx + tLower.length);
+      }
+    });
+
+    if (ranges.length === 0) {
+      return escapeHtml(text);
+    }
+
+    // Merge overlapping or adjacent ranges
+    ranges.sort((a, b) => a.start - b.start || a.end - b.end);
+    const merged = [];
+    for (const r of ranges) {
+      if (merged.length === 0) {
+        merged.push({ start: r.start, end: r.end });
+      } else {
+        const prev = merged[merged.length - 1];
+        if (r.start <= prev.end) {
+          prev.end = Math.max(prev.end, r.end);
+        } else {
+          merged.push({ start: r.start, end: r.end });
+        }
+      }
+    }
+
+    // Safely reconstruct HTML with highlighted marks
+    let html = '';
+    let lastIdx = 0;
+    for (const r of merged) {
+      if (r.start > lastIdx) {
+        html += escapeHtml(text.slice(lastIdx, r.start));
+      }
+      html += `<mark class="search-match">${escapeHtml(text.slice(r.start, r.end))}</mark>`;
+      lastIdx = r.end;
+    }
+    if (lastIdx < text.length) {
+      html += escapeHtml(text.slice(lastIdx));
+    }
+    return html;
+  }
+
   // Highlight snippet with continuous phrase support
   function highlightSnippet(snippetText, query, tokens) {
     if (!snippetText) return '';
@@ -263,6 +330,7 @@
         contentLower: (note.content || '').toLowerCase(),
         titleLower: (note.title || '').toLowerCase(),
         descLower: (note.description || '').toLowerCase(),
+        descTokens: cleanTokens(note.description || ''),
         // Pre-computed plaintext representation
         plainText: stripMarkdown(note.content || '')
       }));
@@ -286,6 +354,7 @@
           score: 0,
           titleIndices: [],
           matchTier: 'none',
+          descHtml: escapeHtml(item.note.description || ''),
           snippetHtml: ''
         }));
       }
@@ -310,14 +379,76 @@
         }
 
         // -------------------------------------------------------------------
-        // Tier 2: Description match
+        // Tier 2: Description & Keyword Match (Curated Metadata)
         // -------------------------------------------------------------------
+        let descMatched = false;
         if (item.descLower) {
-          const descHasFull = item.descLower.includes(qLower);
-          const descHasAllWords = queryTokens.length > 1 && queryTokens.every(w => item.descLower.includes(w));
-          if (descHasFull || descHasAllWords) {
-            score += descHasFull ? 350 : 250;
-            if (matchTier === 'none') matchTier = 'desc';
+          let descScore = 0;
+
+          // 1. Exact full query phrase in description
+          if (qLower.length > 1 && item.descLower.includes(qLower)) {
+            descScore += 900;
+            descMatched = true;
+          }
+
+          // 2. Token & Prefix matching for keywords
+          if (queryTokens.length > 0) {
+            let matchedTokensCount = 0;
+            let exactTokensCount = 0;
+            let prefixTokensCount = 0;
+
+            for (const qt of queryTokens) {
+              if (item.descTokens.includes(qt)) {
+                matchedTokensCount++;
+                exactTokensCount++;
+              } else if (item.descTokens.some(dt => dt.startsWith(qt))) {
+                matchedTokensCount++;
+                prefixTokensCount++;
+              } else if (item.descLower.includes(qt)) {
+                matchedTokensCount++;
+              }
+            }
+
+            if (queryTokens.length === 1) {
+              // Single keyword query (e.g. 'dock' matching 'docker')
+              if (exactTokensCount > 0) {
+                descScore = Math.max(descScore, 850);
+                descMatched = true;
+              } else if (prefixTokensCount > 0) {
+                descScore = Math.max(descScore, 750);
+                descMatched = true;
+              } else if (matchedTokensCount > 0) {
+                descScore = Math.max(descScore, 650);
+                descMatched = true;
+              }
+            } else {
+              // Multi-keyword query (e.g. 'docker postgres api')
+              if (matchedTokensCount === queryTokens.length) {
+                // ALL query keywords found in description
+                const allScore = 750 + (exactTokensCount * 25) + (prefixTokensCount * 10);
+                descScore = Math.max(descScore, allScore);
+                descMatched = true;
+              } else if (matchedTokensCount >= 2 || (matchedTokensCount / queryTokens.length) >= 0.5) {
+                // Strong partial match (e.g. 2 of 3 keywords)
+                const ratio = matchedTokensCount / queryTokens.length;
+                const partialScore = Math.round(500 + ratio * 200);
+                descScore = Math.max(descScore, partialScore);
+                descMatched = true;
+              } else if (matchedTokensCount > 0) {
+                // Weak partial match (e.g. 1 of 3 keywords)
+                const ratio = matchedTokensCount / queryTokens.length;
+                const weakScore = Math.round(ratio * 350);
+                descScore = Math.max(descScore, weakScore);
+                descMatched = true;
+              }
+            }
+          }
+
+          if (descScore > 0) {
+            score += descScore;
+            if (matchTier === 'none') {
+              matchTier = 'desc';
+            }
           }
         }
 
@@ -383,11 +514,16 @@
         }
 
         if (score > 0) {
+          const descHtml = note.description
+            ? highlightDescription(note.description, q, queryTokens)
+            : '';
+
           results.push({
             note,
             score,
             titleIndices,
             matchTier,
+            descHtml,
             snippetHtml
           });
         }
@@ -405,6 +541,7 @@
     fuzzyMatchTitle,
     highlightMatches,
     highlightWords,
+    highlightDescription,
     highlightSnippet,
     extractSmartSnippet,
     NotesSearchEngine

@@ -23,7 +23,7 @@
   - **Path B (Markdown-Stripped & Fuzzy Token Cluster)**: Strips formatting tags to match across bold/italic styles (`hello **world**`) and scores by keyword density.
   - **Smart Excerpt Snippets**: Centers list preview snippets directly around matched phrases or word density clusters with yellow highlighting.
 - **Clean Display Titles & Chronological Export**: Notes maintain clean titles inside the app UI (`agent-memory`), while date prefixes are automatically applied on disk export (`2026-10-27_agent-memory.md`).
-- **Multiline Descriptions**: Optional descriptions for notes that appear in search results and are indexed by the search engine.
+- **Curated Keywords & Descriptions**: Full indexing for user-authored keywords and descriptions (~300 chars) with high-priority scoring (Title > Description/Keywords > Body Content), prefix matching (e.g., `dock` matches `docker`), multi-token additive ranking, 3-line preview, and visual `<mark class="search-match">` highlighting.
 - **Active Note Pill & Draft Lifecycle**:
   - Indicates the currently active note in the header.
   - Displays a yellow bullet dot (`•`) when there are unsaved changes.
